@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { isAdminRole } from '@/constants/permissions'
-import { authApi, setActiveMockRoleKey } from '@/services/auth/authApi'
+import { authApi } from '@/services/auth/authApi'
 import { useSessionStore } from '@/store/sessionStore'
 import { useUiStore } from '@/store/uiStore'
 import { queryClient } from '@/lib/queryClient'
@@ -19,24 +19,14 @@ export function useSession() {
   const setTodoCount = useSessionStore((state) => state.setTodoCount)
   const logActivity = useUiStore((state) => state.logActivity)
 
-  const switchMockRole = useCallback(
-    (roleKey) => {
-      const profile = setActiveMockRoleKey(roleKey)
-      setSession(profile)
-      logActivity(
-        `signed in as ${isAdminRole(profile.role) ? 'Admin' : 'Doctor / Staff'}`,
-        profile.user.name
-      )
-      return profile
-    },
-    [setSession, logActivity]
-  )
-
   const logout = useCallback(async () => {
     logActivity('signed out')
-    await authApi.logout()
-    queryClient.clear()
-    clearSession(null)
+    try {
+      await authApi.logout()
+    } finally {
+      queryClient.clear()
+      clearSession(null)
+    }
   }, [clearSession, logActivity])
 
   const isAdmin = isAdminRole(role)
@@ -56,7 +46,6 @@ export function useSession() {
     setSession,
     clearSession,
     setTodoCount,
-    switchMockRole,
     logout,
   }
 }

@@ -15,6 +15,9 @@ export function mapAuthErrorMessage(error) {
   if (error.status === 429 || error.code === 'RATE_LIMITED') {
     return 'Too many attempts. Wait a minute and try again.'
   }
+  if (error.code === 'INVALID_MFA') {
+    return 'That code is incorrect or has expired. Check your authenticator app and try again.'
+  }
   if (error.status === 401 || error.code === 'INVALID_CREDENTIALS') {
     return 'Email or password is incorrect.'
   }
@@ -40,6 +43,7 @@ export function useLogin() {
         setMfaChallenge({
           mfaToken: result.mfa_token,
           email: variables?.email || result.email,
+          devOtp: result.dev_otp,
         })
         navigate(ROUTES.LOGIN_MFA, {
           replace: true,

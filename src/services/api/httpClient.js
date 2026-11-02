@@ -72,9 +72,11 @@ httpClient.interceptors.response.use(
   (error) => {
     const apiError = normalizeApiError(error)
     const requestUrl = error?.config?.url || ''
-    const isAuthLoginEndpoint = requestUrl.includes('/auth/login')
+    // A 401 from login / MFA / password endpoints means bad credentials or code, not an
+    // expired session. Only /auth/me (and every non-auth call) should end the session.
+    const isAuthFlowEndpoint = requestUrl.includes('/auth/') && !requestUrl.includes('/auth/me')
 
-    if (apiError.status === 401 && !isAuthLoginEndpoint) {
+    if (apiError.status === 401 && !isAuthFlowEndpoint) {
       const currentPath =
         typeof window !== 'undefined'
           ? `${window.location.pathname}${window.location.search}${window.location.hash}`

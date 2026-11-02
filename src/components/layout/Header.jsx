@@ -11,8 +11,9 @@ export function Header() {
   const apiPanel = useUiStore((state) => state.apiPanel)
   const toggleApiPanel = useUiStore((state) => state.toggleApiPanel)
 
-  const hospitalName = hospital?.name || 'Suvidha Hospital'
-  const hospitalCity = hospital?.city || 'Hyderabad'
+  // /auth/me does not return hospital details yet; fall back to the tenant id.
+  const hospitalName = hospital?.name || user?.tenant_id || env.appName
+  const hospitalCity = hospital?.city || null
   const deskLabel = isAdmin ? 'claims desk' : 'clinical records'
 
   const handleSignOut = async () => {
@@ -27,7 +28,7 @@ export function Header() {
         <div className="hosp">
           {hospitalName}
           <small>
-            {hospitalCity} · {deskLabel}
+            {hospitalCity ? `${hospitalCity} · ${deskLabel}` : deskLabel}
           </small>
         </div>
         {user && (

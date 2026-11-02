@@ -164,7 +164,7 @@ export function FoundationShowcasePage() {
   useDocumentTitle('S00 Foundation')
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, role, permissions, switchMockRole } = useSession()
+  const { user, role, permissions } = useSession()
   const { log } = useActivity()
   const theme = useUiStore((state) => state.theme)
   const setTheme = useUiStore((state) => state.setTheme)
@@ -299,30 +299,6 @@ export function FoundationShowcasePage() {
                 ))}
               </div>
 
-              <div className="row">
-                <Lbl>Mock role:</Lbl>
-                <Button
-                  size="sm"
-                  variant={role === 'ADMIN' ? 'pri' : 'default'}
-                  onClick={() => switchMockRole('admin')}
-                >
-                  Admin (A. Rao)
-                </Button>
-                <Button
-                  size="sm"
-                  disabled
-                  title="Doctor / Staff panel is disabled during Admin API integration"
-                >
-                  Doctor (Dr. S. Menon)
-                </Button>
-                <Button
-                  size="sm"
-                  disabled
-                  title="Doctor / Staff panel is disabled during Admin API integration"
-                >
-                  Records Staff (K. Iyer)
-                </Button>
-              </div>
             </div>
 
             <div className="row">

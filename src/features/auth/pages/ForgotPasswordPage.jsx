@@ -14,6 +14,8 @@ export function ForgotPasswordPage() {
   useDocumentTitle('Forgot password')
   const [email, setEmail] = useState('')
   const [submitted, setSubmitted] = useState(false)
+  // Only returned by the backend in development mode (production emails the link instead).
+  const [devResetToken, setDevResetToken] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -29,7 +31,8 @@ export function ForgotPasswordPage() {
 
     setLoading(true)
     try {
-      await authApi.forgotPassword({ email: parsed.data.email })
+      const result = await authApi.forgotPassword({ email: parsed.data.email })
+      setDevResetToken(result?.reset_token || null)
       setSubmitted(true)
     } catch (err) {
       setError(err?.message || 'Could not send reset link. Please try again.')
@@ -52,29 +55,24 @@ export function ForgotPasswordPage() {
               If that email has an account, a reset link is on its way.
             </Note>
 
-            <Link to={ROUTES.RESET_PASSWORD} className="btn pri w-full text-center">
-              Continue to enter reset token →
-            </Link>
-
-            {env.showApiPanel && (
-              <div className="rounded-lg border border-line bg-tint p-3 text-xs grid gap-1.5 mt-2">
-                <span className="font-semibold text-fg">Development Testing Tip:</span>
-                <span className="text-muted">
-                  Pass the token directly in the URL:
-                </span>
-                <code className="p-1.5 rounded bg-surface text-fg font-mono block select-all overflow-x-auto text-[11px]">
-                  http://localhost:5173/reset-password?token=&lt;TOKEN&gt;
-                </code>
-                <span className="text-muted text-[11px]">
-                  Or path format: <code>/reset-password/&lt;TOKEN&gt;</code>
-                </span>
-                <span className="text-muted text-[11px] mt-1">
-                  CLI command to generate a token:
-                </span>
-                <code className="p-1 rounded bg-surface font-mono block select-all text-[11px]">
-                  python -m app.manage reset-token --tenant-id HOSP-001 --email {email || 'admin@hosp.org'}
-                </code>
-              </div>
+            {devResetToken ? (
+              <>
+                <Link
+                  to={`${ROUTES.RESET_PASSWORD}?token=${encodeURIComponent(devResetToken)}`}
+                  className="btn pri w-full text-center"
+                >
+                  Set a new password →
+                </Link>
+                {env.showApiPanel && (
+                  <span className="small muted">
+                    Dev mode: the backend returned the reset token directly, so no email is needed.
+                  </span>
+                )}
+              </>
+            ) : (
+              <Link to={ROUTES.RESET_PASSWORD} className="btn pri w-full text-center">
+                Continue to enter reset token →
+              </Link>
             )}
           </div>
         ) : (

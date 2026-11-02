@@ -7,12 +7,14 @@ export const useSessionStore = create((set) => ({
   permissions: [],
   hospital: null,
   csrfToken: null,
-  todoCount: 5,
+  todoCount: 0,
   isHydrated: false,
   returnToPath: null,
-  // MFA token kept in memory only (never persisted to storage)
+  // MFA challenge kept in memory only (never persisted to storage).
+  // mfaDevOtp is only sent by the backend in development mode.
   mfaToken: null,
   mfaEmail: null,
+  mfaDevOtp: null,
 
   setSession: (payload) => {
     if (!payload || !payload.user) {
@@ -25,6 +27,7 @@ export const useSessionStore = create((set) => ({
         isHydrated: true,
         mfaToken: null,
         mfaEmail: null,
+        mfaDevOtp: null,
       })
       return
     }
@@ -38,29 +41,28 @@ export const useSessionStore = create((set) => ({
       user: payload.user,
       role: normalizedRole,
       permissions,
-      hospital: payload.hospital || {
-        name: 'Suvidha Hospital',
-        city: 'Hyderabad',
-        tenant_id: payload.user?.tenant_id || 'HOSP-001',
-      },
-      csrfToken: payload.csrf_token || payload.csrfToken || 'csrf-syn-token',
-      todoCount: typeof payload.todoCount === 'number' ? payload.todoCount : 5,
+      hospital: payload.hospital || null,
+      csrfToken: payload.csrf_token || null,
+      todoCount: typeof payload.todoCount === 'number' ? payload.todoCount : 0,
       isHydrated: true,
       mfaToken: null,
       mfaEmail: null,
+      mfaDevOtp: null,
     })
   },
 
-  setMfaChallenge: ({ mfaToken, email }) =>
+  setMfaChallenge: ({ mfaToken, email, devOtp }) =>
     set({
       mfaToken,
       mfaEmail: email || null,
+      mfaDevOtp: devOtp || null,
     }),
 
   clearMfaChallenge: () =>
     set({
       mfaToken: null,
       mfaEmail: null,
+      mfaDevOtp: null,
     }),
 
   clearSession: (returnToPath = null) =>
@@ -73,6 +75,7 @@ export const useSessionStore = create((set) => ({
       isHydrated: true,
       mfaToken: null,
       mfaEmail: null,
+      mfaDevOtp: null,
       returnToPath: returnToPath ?? state.returnToPath,
     })),
 

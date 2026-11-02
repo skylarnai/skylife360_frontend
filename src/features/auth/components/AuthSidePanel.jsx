@@ -1,12 +1,13 @@
 import { Logo } from '@/components/common/Logo'
+import { env } from '@/config/env'
 
 export function AuthSidePanel() {
   return (
     <div className="lside">
       <Logo />
       <div className="lhero">
-        <span className="lbl">Hyderabad · tenant SYN-HOSP-01</span>
-        <h1>Suvidha Hospital</h1>
+        <span className="lbl">Hospital claims workspace</span>
+        <h1>{env.appName}</h1>
         <p className="lead">
           One secure workspace that turns scattered patient documents into clean, evidence-backed
           insurance claims.
@@ -64,9 +65,6 @@ export function AuthSidePanel() {
           </div>
         </li>
       </ul>
-      <div className="lnote">
-        Demo workspace. Suvidha Hospital and all patient data are fictional.
-      </div>
     </div>
   )
 }

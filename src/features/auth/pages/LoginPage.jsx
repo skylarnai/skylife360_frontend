@@ -1,50 +1,24 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { env } from '@/config/env'
 import { ROUTES } from '@/constants/routes'
 import { Button } from '@/components/ui/Button'
 import { ErrorBox } from '@/components/ui/ErrorBox'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
-import { DEMO_USERS } from '@/services/auth/authApi'
 import { AuthCard } from '../components/AuthCard'
-import { DemoAccounts } from '../components/DemoAccounts'
 import { PasswordInput } from '../components/PasswordInput'
 import { mapAuthErrorMessage, useLogin } from '../hooks/useLogin'
 import { loginSchema } from '../schemas/loginSchema'
 
 export function LoginPage() {
   useDocumentTitle('Sign in')
-  const passwordInputRef = useRef(null)
   const loginMutation = useLogin()
 
   // Doctor / Staff panel is temporarily disabled while focusing on Admin workflow & APIs
   const [loginRole] = useState('admin')
-  const defaultEmail = env.showApiPanel
-    ? env.authMock
-      ? 'a.rao@suvidha.demo'
-      : 'superadmin@hosp.org'
-    : ''
-  const defaultPassword = env.showApiPanel
-    ? env.authMock
-      ? 'demo1234'
-      : 'SecurePass123!'
-    : ''
 
-  const [email, setEmail] = useState(defaultEmail)
-  const [password, setPassword] = useState(defaultPassword)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [validationError, setValidationError] = useState('')
-
-  const handleFillDemo = (demoEmail) => {
-    setEmail(demoEmail)
-    if (env.showApiPanel) {
-      setPassword(env.authMock ? 'demo1234' : 'SecurePass123!')
-    }
-    setValidationError('')
-    loginMutation.reset()
-    setTimeout(() => {
-      passwordInputRef.current?.focus()
-    }, 0)
-  }
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -57,21 +31,8 @@ export function LoginPage() {
       return
     }
 
-    const normalizedEmail = parsed.data.email.toLowerCase()
-    if (env.authMock) {
-      const matchedDemo = Object.values(DEMO_USERS).find(
-        (u) => u.user.email.toLowerCase() === normalizedEmail
-      )
-      if (matchedDemo && matchedDemo.role !== 'ADMIN') {
-        setValidationError(
-          'Doctor / Staff panel is currently disabled while we complete the Admin workflow APIs. Please sign in with an Admin account.'
-        )
-        return
-      }
-    }
-
     loginMutation.mutate({
-      email: normalizedEmail,
+      email: parsed.data.email.toLowerCase(),
       password: parsed.data.password,
     })
   }
@@ -132,7 +93,6 @@ export function LoginPage() {
 
           <div className="grid gap-2">
             <PasswordInput
-              ref={passwordInputRef}
               value={password}
               disabled={loginMutation.isPending}
               onChange={(e) => setPassword(e.target.value)}
@@ -174,11 +134,6 @@ export function LoginPage() {
             </>
           )}
         </Button>
-
-        <DemoAccounts
-          onSelectAccount={handleFillDemo}
-          disabled={loginMutation.isPending}
-        />
       </form>
     </AuthCard>
   )

@@ -16,13 +16,15 @@ export function MfaPage() {
   useDocumentTitle('Verify MFA')
   const mfaToken = useSessionStore((state) => state.mfaToken)
   const mfaEmail = useSessionStore((state) => state.mfaEmail)
+  const mfaDevOtp = useSessionStore((state) => state.mfaDevOtp)
   const clearMfaChallenge = useSessionStore((state) => state.clearMfaChallenge)
   const verifyMfaMutation = useVerifyMfa()
 
-  const [code, setCode] = useState(env.showApiPanel ? '123456' : '')
+  // The backend only returns dev_otp in development mode; never pre-fill anything else.
+  const [code, setCode] = useState(env.showApiPanel && mfaDevOtp ? mfaDevOtp : '')
   const [validationError, setValidationError] = useState('')
 
-  if (!mfaToken && !env.showApiPanel) {
+  if (!mfaToken) {
     return <Navigate to={ROUTES.LOGIN} replace />
   }
 
@@ -39,7 +41,7 @@ export function MfaPage() {
     }
 
     verifyMfaMutation.mutate({
-      mfa_token: mfaToken || 'mfa-dev-token',
+      mfa_token: mfaToken,
       code: parsed.data.code,
     })
   }
@@ -65,15 +67,9 @@ export function MfaPage() {
             disabled={verifyMfaMutation.isPending}
             onChange={(nextVal) => setCode(nextVal)}
           />
-          {env.showApiPanel && (
+          {env.showApiPanel && mfaDevOtp && (
             <span className="small muted">
-              {env.authMock ? (
-                <>
-                  Demo authenticator code: <code>123456</code>
-                </>
-              ) : (
-                'Enter the 6-digit TOTP code from your authenticator app (e.g. Google Authenticator)'
-              )}
+              Dev mode: code filled in from the backend&apos;s <code>dev_otp</code>.
             </span>
           )}
         </div>
