@@ -30,8 +30,17 @@ function generateUUID() {
   })
 }
 
+// In development, use relative prefix to route through Vite proxy and avoid browser CORS restrictions
+const resolvedBaseUrl =
+  import.meta.env.DEV &&
+  (!env.apiBaseUrl ||
+    env.apiBaseUrl.includes('localhost') ||
+    env.apiBaseUrl.includes('127.0.0.1'))
+    ? env.apiPrefix
+    : `${env.apiBaseUrl}${env.apiPrefix}`
+
 export const httpClient = axios.create({
-  baseURL: `${env.apiBaseUrl}${env.apiPrefix}`,
+  baseURL: resolvedBaseUrl,
   withCredentials: true,
   timeout: 30_000,
   headers: {

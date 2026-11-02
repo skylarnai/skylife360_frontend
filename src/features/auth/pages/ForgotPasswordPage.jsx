@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { env } from '@/config/env'
 import { ROUTES } from '@/constants/routes'
 import { Button } from '@/components/ui/Button'
 import { ErrorBox } from '@/components/ui/ErrorBox'
@@ -46,9 +47,36 @@ export function ForgotPasswordPage() {
         </div>
 
         {submitted ? (
-          <Note tone="live">
-            If that email has an account, a reset link is on its way.
-          </Note>
+          <div className="grid gap-3">
+            <Note tone="live">
+              If that email has an account, a reset link is on its way.
+            </Note>
+
+            <Link to={ROUTES.RESET_PASSWORD} className="btn pri w-full text-center">
+              Continue to enter reset token →
+            </Link>
+
+            {env.showApiPanel && (
+              <div className="rounded-lg border border-line bg-tint p-3 text-xs grid gap-1.5 mt-2">
+                <span className="font-semibold text-fg">Development Testing Tip:</span>
+                <span className="text-muted">
+                  Pass the token directly in the URL:
+                </span>
+                <code className="p-1.5 rounded bg-surface text-fg font-mono block select-all overflow-x-auto text-[11px]">
+                  http://localhost:5173/reset-password?token=&lt;TOKEN&gt;
+                </code>
+                <span className="text-muted text-[11px]">
+                  Or path format: <code>/reset-password/&lt;TOKEN&gt;</code>
+                </span>
+                <span className="text-muted text-[11px] mt-1">
+                  CLI command to generate a token:
+                </span>
+                <code className="p-1 rounded bg-surface font-mono block select-all text-[11px]">
+                  python -m app.manage reset-token --tenant-id HOSP-001 --email {email || 'admin@hosp.org'}
+                </code>
+              </div>
+            )}
+          </div>
         ) : (
           <>
             <div className="lfields">
@@ -76,7 +104,10 @@ export function ForgotPasswordPage() {
           </>
         )}
 
-        <div>
+        <div className="flex justify-between items-center text-sm">
+          <Link to={ROUTES.RESET_PASSWORD} className="link small">
+            Already have a reset token?
+          </Link>
           <Link to={ROUTES.LOGIN} className="link small">
             ← Back to sign in
           </Link>

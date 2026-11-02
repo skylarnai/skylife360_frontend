@@ -10,9 +10,13 @@ export const forgotPasswordSchema = z.object({
 
 export const resetSchema = z
   .object({
+    token: z
+      .string()
+      .trim()
+      .min(16, 'Enter a valid reset token (at least 16 characters).'),
     newPassword: z
       .string()
-      .min(12, 'Password must be at least 12 characters long.'),
+      .min(8, 'Password must be at least 8 characters long.'),
     confirmPassword: z.string().min(1, 'Please confirm your new password.'),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {

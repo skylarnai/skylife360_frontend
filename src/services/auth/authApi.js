@@ -57,9 +57,12 @@ export const authApi = {
    * Clears the session cookie
    */
   async logout() {
-    await authApiMock.logout()
-    if (!env.authMock) {
-      await httpClient.post('/auth/logout')
+    try {
+      if (!env.authMock) {
+        await httpClient.post('/auth/logout')
+      }
+    } finally {
+      await authApiMock.logout()
     }
   },
 

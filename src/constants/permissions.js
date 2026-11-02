@@ -61,9 +61,11 @@ export const ROLE_PERMISSIONS = {
 
 export function normalizeRole(role) {
   const upper = String(role || '').toUpperCase()
-  if (upper === 'ADMIN') return ROLES.ADMIN
+  if (upper === 'ADMIN' || upper === 'SUPER_ADMIN') return ROLES.ADMIN
   if (upper === 'RECORDS_STAFF' || upper === 'STAFF') return ROLES.RECORDS_STAFF
   if (upper === 'COMPLIANCE') return ROLES.COMPLIANCE
+  if (upper === 'MEMBER' || upper === 'DOCTOR') return ROLES.DOCTOR
+  if (upper === 'VIEWER') return ROLES.DOCTOR
   return ROLES.DOCTOR
 }
 

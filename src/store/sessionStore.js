@@ -41,7 +41,7 @@ export const useSessionStore = create((set) => ({
       hospital: payload.hospital || {
         name: 'Suvidha Hospital',
         city: 'Hyderabad',
-        tenant_id: 'SYN-HOSP-01',
+        tenant_id: payload.user?.tenant_id || 'HOSP-001',
       },
       csrfToken: payload.csrf_token || payload.csrfToken || 'csrf-syn-token',
       todoCount: typeof payload.todoCount === 'number' ? payload.todoCount : 5,

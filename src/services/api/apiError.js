@@ -49,7 +49,7 @@ export function normalizeApiError(error) {
   if (detail && typeof detail === 'object' && !Array.isArray(detail)) {
     return new ApiError({
       status,
-      code: detail.code || `HTTP_${status}`,
+      code: detail.code || detail.error_code || `HTTP_${status}`,
       message: detail.message || data?.message || MESSAGES.GENERIC_ERROR,
       details: detail,
     })

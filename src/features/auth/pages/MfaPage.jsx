@@ -67,7 +67,13 @@ export function MfaPage() {
           />
           {env.showApiPanel && (
             <span className="small muted">
-              Demo authenticator code: <code>123456</code>
+              {env.authMock ? (
+                <>
+                  Demo authenticator code: <code>123456</code>
+                </>
+              ) : (
+                'Enter the 6-digit TOTP code from your authenticator app (e.g. Google Authenticator)'
+              )}
             </span>
           )}
         </div>

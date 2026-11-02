@@ -19,14 +19,25 @@ export function LoginPage() {
 
   // Doctor / Staff panel is temporarily disabled while focusing on Admin workflow & APIs
   const [loginRole] = useState('admin')
-  const [email, setEmail] = useState(env.showApiPanel ? 'a.rao@suvidha.demo' : '')
-  const [password, setPassword] = useState(env.showApiPanel ? 'demo1234' : '')
+  const defaultEmail = env.showApiPanel
+    ? env.authMock
+      ? 'a.rao@suvidha.demo'
+      : 'superadmin@hosp.org'
+    : ''
+  const defaultPassword = env.showApiPanel
+    ? env.authMock
+      ? 'demo1234'
+      : 'SecurePass123!'
+    : ''
+
+  const [email, setEmail] = useState(defaultEmail)
+  const [password, setPassword] = useState(defaultPassword)
   const [validationError, setValidationError] = useState('')
 
   const handleFillDemo = (demoEmail) => {
     setEmail(demoEmail)
     if (env.showApiPanel) {
-      setPassword('demo1234')
+      setPassword(env.authMock ? 'demo1234' : 'SecurePass123!')
     }
     setValidationError('')
     loginMutation.reset()
@@ -47,20 +58,21 @@ export function LoginPage() {
     }
 
     const normalizedEmail = parsed.data.email.toLowerCase()
-    const matchedDemo = Object.values(DEMO_USERS).find(
-      (u) => u.user.email.toLowerCase() === normalizedEmail
-    )
-    if (matchedDemo && matchedDemo.role !== 'ADMIN') {
-      setValidationError(
-        'Doctor / Staff panel is currently disabled while we complete the Admin workflow APIs. Please sign in with an Admin account.'
+    if (env.authMock) {
+      const matchedDemo = Object.values(DEMO_USERS).find(
+        (u) => u.user.email.toLowerCase() === normalizedEmail
       )
-      return
+      if (matchedDemo && matchedDemo.role !== 'ADMIN') {
+        setValidationError(
+          'Doctor / Staff panel is currently disabled while we complete the Admin workflow APIs. Please sign in with an Admin account.'
+        )
+        return
+      }
     }
 
     loginMutation.mutate({
       email: normalizedEmail,
       password: parsed.data.password,
-      skipMfa: true,
     })
   }
 

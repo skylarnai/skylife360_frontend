@@ -12,10 +12,10 @@ export function mapAuthErrorMessage(error) {
   if (error.status === 423 || error.code === 'ACCOUNT_LOCKED') {
     return 'Too many attempts. Try again in 15 minutes or reset your password.'
   }
-  if (error.status === 429) {
+  if (error.status === 429 || error.code === 'RATE_LIMITED') {
     return 'Too many attempts. Wait a minute and try again.'
   }
-  if (error.status === 401) {
+  if (error.status === 401 || error.code === 'INVALID_CREDENTIALS') {
     return 'Email or password is incorrect.'
   }
   if (error.status === 0 || error.code === 'NETWORK_ERROR') {

@@ -2,7 +2,19 @@ import { env } from '@/config/env'
 import { Chip } from '@/components/ui/Chip'
 import { Lbl } from '@/components/ui/Lbl'
 
-const ACCOUNTS = [
+const LIVE_ACCOUNTS = [
+  { email: 'superadmin@hosp.org', label: 'SUPER ADMIN', tone: 'ok', disabled: false },
+  { email: 'admin@hosp.org', label: 'ADMIN (MFA)', tone: 'teal', disabled: false },
+  {
+    email: 'doctor@hosp.org',
+    label: 'DOCTOR',
+    tone: 'grey',
+    disabled: true,
+    note: 'Disabled during Admin API integration',
+  },
+]
+
+const MOCK_ACCOUNTS = [
   { email: 'a.rao@suvidha.demo', label: 'ADMIN', tone: 'teal', disabled: false },
   {
     email: 's.menon@suvidha.demo',
@@ -25,13 +37,19 @@ export function DemoAccounts({ onSelectAccount, disabled = false }) {
     return null
   }
 
+  const accounts = env.authMock ? MOCK_ACCOUNTS : LIVE_ACCOUNTS
+
   return (
     <div className="ldemo">
       <div className="top">
         <Lbl>Demo accounts</Lbl>
-        <span>Tap one to fill it in · password demo1234</span>
+        <span>
+          {env.authMock
+            ? 'Tap one to fill it in · password demo1234'
+            : 'Tap one to fill it in · password SecurePass123!'}
+        </span>
       </div>
-      {ACCOUNTS.map((acc) => {
+      {accounts.map((acc) => {
         const isDisabled = disabled || acc.disabled
         return (
           <button

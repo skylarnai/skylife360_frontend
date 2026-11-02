@@ -97,6 +97,10 @@ export const router = createBrowserRouter([
         path: ROUTES.RESET_PASSWORD,
         element: <ResetPasswordPage />,
       },
+      {
+        path: ROUTES.RESET_PASSWORD_WITH_TOKEN,
+        element: <ResetPasswordPage />,
+      },
     ],
   },
   {

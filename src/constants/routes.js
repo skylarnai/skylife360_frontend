@@ -4,6 +4,7 @@ export const ROUTES = {
   LOGIN_MFA: '/login/mfa',
   FORGOT_PASSWORD: '/forgot-password',
   RESET_PASSWORD: '/reset-password',
+  RESET_PASSWORD_WITH_TOKEN: '/reset-password/:token',
   CLAIMS: '/claims',
   CLAIM_DESK: '/claims/:claimId/:step',
   CLAIM_DESK_DEFAULT: '/claims/SUV-261028-01/upload',
@@ -17,7 +18,7 @@ export const ROUTES = {
 
 export function getLandingRoute(role) {
   const normalized = String(role || '').toUpperCase()
-  if (normalized === 'ADMIN' || normalized === 'COMPLIANCE') {
+  if (normalized === 'ADMIN' || normalized === 'COMPLIANCE' || normalized === 'SUPER_ADMIN') {
     return ROUTES.CLAIMS
   }
   return ROUTES.DOCUMENTS
