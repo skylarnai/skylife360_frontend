@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0}[hidden]{display:none!important}</style>
+<title>Sky Claims Desk</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=JetBrains+Mono:wght@500;700&family=Source+Sans+3:wght@400;600;700&display=swap">
+<style>
+/* Layout: navy top bar, role-specific nav, wide work column + narrow rail (API / activity) that stacks on phones */
+:root{
+  --bg:#F2F5F8; --surface:#FFFFFF; --soft:#F7FAFC; --tint:#EEF4F8; --line:#D6DFE7; --line2:#E3EAF0;
+  --fg:#13253A; --muted:#5A6B7D; --accent:#1C84B0; --accent-ink:#16698D; --amber:#D98A1C;
+  --hdr:#0F2A44; --hdr-fg:#FFFFFF; --btn:#0F2A44; --btn-fg:#FFFFFF; --code-bg:#0F2A44; --code-fg:#DCE8F2;
+  --ok-bg:#E1F3EA; --ok:#17663F; --amb-bg:#FCEFDB; --amb:#8A520C; --red-bg:#FBE7E5; --red:#9A2C26;
+  --teal-bg:#E2F0F7; --teal:#16698D; --grey-bg:#EEF1F4; --grey:#5A6B7D; --plum-bg:#F6E6EC; --plum:#6E2D46;
+  --mark:#FFE7A8;
+  --f-display:Archivo, Arial, sans-serif; --f-body:'Source Sans 3','Segoe UI',Arial,sans-serif; --f-mono:'JetBrains Mono',Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0B1622; --surface:#122130; --soft:#15283A; --tint:#173045; --line:#26405A; --line2:#1F3549;
+  --fg:#E3ECF4; --muted:#97AABD; --accent:#4FB0DA; --accent-ink:#7CC6E6; --amber:#E39B33;
+  --hdr:#08131F; --hdr-fg:#FFFFFF; --btn:#2A5C86; --btn-fg:#FFFFFF; --code-bg:#07111C; --code-fg:#CFE0EE;
+  --ok-bg:#123526; --ok:#7FD3A6; --amb-bg:#3A2A12; --amb:#F0B865; --red-bg:#3B1A18; --red:#F19A92;
+  --teal-bg:#10303F; --teal:#7CC6E6; --grey-bg:#1E2C3A; --grey:#9FB0C0; --plum-bg:#3A1C29; --plum:#E7A9C1;
+  --mark:#5A4A16; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0B1622; --surface:#122130; --soft:#15283A; --tint:#173045; --line:#26405A; --line2:#1F3549;
+  --fg:#E3ECF4; --muted:#97AABD; --accent:#4FB0DA; --accent-ink:#7CC6E6; --amber:#E39B33;
+  --hdr:#08131F; --hdr-fg:#FFFFFF; --btn:#2A5C86; --btn-fg:#FFFFFF; --code-bg:#07111C; --code-fg:#CFE0EE;
+  --ok-bg:#123526; --ok:#7FD3A6; --amb-bg:#3A2A12; --amb:#F0B865; --red-bg:#3B1A18; --red:#F19A92;
+  --teal-bg:#10303F; --teal:#7CC6E6; --grey-bg:#1E2C3A; --grey:#9FB0C0; --plum-bg:#3A1C29; --plum:#E7A9C1;
+  --mark:#5A4A16; color-scheme:dark }
+body{background:var(--bg);color:var(--fg);font:15px/1.5 var(--f-body)}
+button{font:inherit;color:inherit;cursor:pointer}
+input,select,textarea{font:inherit;color:inherit}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0}
+code,.mono{font-family:var(--f-mono)}
+.wrap{max-width:1360px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.lbl{font:600 11px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+
+/* header */
+.hdr{background:var(--hdr);color:var(--hdr-fg)}
+.hdr .wrap{padding-block:12px;display:flex;flex-wrap:wrap;align-items:center;gap:10px 20px}
+.brand{display:flex;align-items:center;gap:10px}
+.brand b{font:700 16px/1.15 var(--f-display)}
+.brand small{display:block;font:500 10.5px var(--f-mono);letter-spacing:.1em;opacity:.75}
+.hosp{font:800 22px/1.1 var(--f-display);padding-left:18px;border-left:1px solid rgba(255,255,255,.22)}
+.hosp small{display:block;font:500 11px var(--f-mono);letter-spacing:.08em;opacity:.75;text-transform:uppercase}
+.who{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.who .pill{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.25);border-radius:6px;padding:6px 10px;font:500 12.5px var(--f-mono)}
+.role-tag{font:700 10.5px var(--f-mono);letter-spacing:.06em;padding:2px 7px;border-radius:4px;background:var(--amber);color:#13253A}
+.hbtn{background:transparent;border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:6px;padding:6px 12px;min-height:36px}
+.tabs{background:var(--hdr);border-top:1px solid rgba(255,255,255,.12)}
+.tabs .wrap{display:flex;gap:4px;overflow-x:auto}
+.tab{background:transparent;border:0;color:#fff;opacity:.75;padding:10px 14px;font-weight:600;border-bottom:3px solid transparent;white-space:nowrap}
+.tab[aria-current="page"]{opacity:1;border-bottom-color:var(--amber)}
+.tab .tg{font:700 9.5px var(--f-mono);margin-left:6px;padding:1px 5px;border-radius:3px;background:rgba(255,255,255,.15)}
+
+/* building blocks */
+main.wrap{padding-block:16px 40px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.pad{padding:16px 18px}
+.stack{display:grid;gap:14px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.between{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 16px;align-items:baseline}
+.cols{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start}
+.cols>.main{flex:999 1 640px;min-width:0}
+.cols>.rail{flex:1 1 340px;min-width:0;display:grid;gap:12px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.tile{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--soft)}
+.tile .v{font:800 22px var(--f-display);font-variant-numeric:tabular-nums}
+.chip{font:700 11px var(--f-mono);letter-spacing:.03em;padding:2px 7px;border-radius:4px;white-space:nowrap;display:inline-block}
+.ok{background:var(--ok-bg);color:var(--ok)} .amb{background:var(--amb-bg);color:var(--amb)} .red{background:var(--red-bg);color:var(--red)}
+.teal{background:var(--teal-bg);color:var(--teal)} .grey{background:var(--grey-bg);color:var(--grey)}
+.pillc{font:600 12px var(--f-body);padding:4px 10px;border-radius:99px;display:inline-block}
+.btn{border-radius:6px;padding:10px 16px;font-weight:700;min-height:44px;border:1px solid var(--line);background:var(--surface)}
+.btn.pri{background:var(--btn);color:var(--btn-fg);border-color:var(--btn)}
+.btn.acc{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn.warn{background:var(--amber);color:#13253A;border-color:var(--amber)}
+.btn.sm{min-height:36px;padding:6px 12px;font-size:14px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.link{border:0;background:none;color:var(--accent);font-weight:600;padding:0;text-decoration:underline}
+.note{border:1px dashed var(--amber);background:var(--amb-bg);border-radius:8px;padding:9px 12px;font-size:14px}
+.note.live{border-color:var(--ok);background:var(--ok-bg)}
+.note.plum{border:1px solid var(--plum);background:var(--plum-bg);color:var(--plum)}
+.field{display:grid;gap:4px;font-size:13px;color:var(--muted)}
+.field input,.field select,.field textarea{border:1px solid var(--line);border-radius:6px;padding:8px 10px;background:var(--surface);color:var(--fg);min-height:40px}
+.tblw{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{background:var(--tint);text-align:left;padding:8px 10px;font:600 11px var(--f-mono);letter-spacing:.06em;color:var(--muted);white-space:nowrap}
+td{padding:8px 10px;border-top:1px solid var(--line2);vertical-align:top}
+tr.click{cursor:pointer} tr.click:hover td{background:var(--soft)} tr.sel td{background:var(--tint)}
+.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.cite{font:600 12.5px var(--f-mono);color:var(--teal);background:var(--teal-bg);border-radius:3px;padding:0 3px}
+mark{background:var(--mark);color:inherit;border-radius:2px;padding:0 1px}
+pre.code{margin:0;background:var(--code-bg);color:var(--code-fg);border-radius:8px;padding:10px 12px;font:500 12px/1.55 var(--f-mono);overflow-x:auto;white-space:pre}
+.kv{display:flex;justify-content:space-between;gap:8px;font-size:13.5px;border-bottom:1px dashed var(--line);padding-bottom:3px}
+.kv span{color:var(--muted)}
+.railhd{padding:10px 12px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:8px}
+.list{list-style:none;margin:0;padding:8px;display:grid;gap:6px}
+.list li{border:1px solid var(--line);border-radius:6px;padding:7px 9px;display:grid;gap:2px;min-width:0}
+.meth{font:700 10.5px var(--f-mono);background:var(--btn);color:#fff;border-radius:4px;padding:2px 6px}
+.act{list-style:none;margin:0;padding:6px 12px 10px;display:grid}
+.act li{display:grid;grid-template-columns:54px minmax(0,1fr);gap:8px;padding:6px 0;border-bottom:1px dashed var(--line);font-size:13.5px}
+.act time{font:500 12px var(--f-mono);color:var(--teal)}
+.qbtn{border-radius:99px;padding:8px 14px;min-height:40px;font-size:14px;font-weight:600;background:var(--surface);border:1px solid var(--line)}
+.qbtn[aria-pressed="true"]{background:var(--btn);color:#fff;border-color:var(--btn)}
+
+/* stage nav */
+.stages{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px}
+.stg{text-align:left;padding:8px 10px;border-radius:6px;min-height:52px;background:var(--surface);border:1px solid var(--line);color:var(--muted)}
+.stg.planned{border-style:dashed}
+.stg.done{border-color:var(--accent)}
+.stg b{font:700 13.5px var(--f-display);color:var(--fg)}
+.stg.done b{color:var(--accent-ink)}
+.stg[aria-current="step"]{background:var(--accent);border-color:var(--accent);border-style:solid;color:#fff}
+.stg[aria-current="step"] b{color:#fff}
+.stg .t{font:700 9.5px var(--f-mono);padding:1px 5px;border-radius:3px}
+.stg[aria-current="step"] .t{background:rgba(255,255,255,.2);color:#fff}
+.stg span.sub{display:block;font-size:12.5px}
+
+/* login */
+.login{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding-block:48px;box-sizing:border-box}
+.lshell{width:100%;max-width:1080px;display:grid;gap:20px}
+.lbox{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);width:100%;overflow:hidden;border-radius:16px;box-shadow:0 24px 60px -28px rgba(15,42,68,.38);animation:lrise .5s ease both}
+@keyframes lrise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.lbox{animation:none}}
+.lside{position:relative;overflow:hidden;background:var(--hdr);color:#fff;padding:52px 48px;display:flex;flex-direction:column;gap:40px;justify-content:space-between}
+.lside::before{content:"";position:absolute;right:-140px;top:-140px;width:420px;height:420px;border-radius:50%;border:1px solid rgba(93,182,221,.22);box-shadow:0 0 0 54px rgba(93,182,221,.05),0 0 0 108px rgba(93,182,221,.035);pointer-events:none}
+.lside::after{content:"";position:absolute;left:-90px;bottom:-110px;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(217,138,28,.22),transparent 68%);pointer-events:none}
+.lside>*{position:relative;z-index:1}
+.lside .brand b{font-size:18px}
+.lhero{display:grid;gap:16px}
+.lhero .lbl{color:rgba(255,255,255,.62)}
+.lside h1{font:800 38px/1.1 var(--f-display);letter-spacing:-.01em}
+.lside .lead{margin:0;font-size:16px;line-height:1.65;color:rgba(255,255,255,.8);max-width:36ch}
+.lfeat{margin:0;padding:0;list-style:none;display:grid;gap:22px}
+.lfeat li{display:grid;grid-template-columns:40px minmax(0,1fr);gap:16px;align-items:start}
+.lfeat .ic{width:40px;height:40px;border-radius:10px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);display:grid;place-items:center;color:#5DB6DD}
+.lfeat b{display:block;font:700 12px var(--f-mono);letter-spacing:.08em;color:var(--amber);margin-bottom:4px}
+.lfeat span{display:block;font-size:14.5px;line-height:1.55;color:rgba(255,255,255,.78)}
+.lnote{font-size:13px;color:rgba(255,255,255,.58);line-height:1.5}
+.lform{padding:56px 56px 48px;display:grid;gap:26px;align-content:center;background:var(--surface)}
+.lhead{display:grid;gap:10px}
+.lhead h2{font:800 30px/1.15 var(--f-display);letter-spacing:-.01em}
+.lhead p{margin:0;color:var(--muted);font-size:15.5px;line-height:1.6;max-width:46ch}
+.lgroup{display:grid;gap:12px}
+.lgroup>.lbl{font-size:11.5px}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:12px;border:0;border-radius:0;overflow:visible}
+.seg button{position:relative;border:1.5px solid var(--line);border-radius:12px;background:var(--surface);padding:18px 18px 18px 52px;min-height:88px;text-align:left;transition:border-color .15s,background .15s,box-shadow .15s}
+.seg button:hover{border-color:var(--accent);background:var(--soft)}
+.seg button b{display:block;font:700 15.5px var(--f-display);margin-bottom:4px}
+.seg button small{display:block;color:var(--muted);font-size:13px;line-height:1.45}
+.seg button::before{content:"";position:absolute;left:18px;top:20px;width:18px;height:18px;border-radius:50%;border:2px solid var(--line);background:var(--surface);box-sizing:border-box;transition:all .15s}
+.seg button[aria-pressed="true"]{background:var(--tint);border-color:var(--accent);box-shadow:0 0 0 3px var(--teal-bg);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
+.seg button[aria-pressed="true"]::before{border-color:var(--accent);background:radial-gradient(circle,var(--accent) 0 4px,var(--surface) 5px)}
+.lfields{display:grid;gap:20px}
+.lfield{display:grid;gap:8px;font-size:13.5px;font-weight:600;color:var(--fg)}
+.lfield .hint{font-weight:400;color:var(--muted);font-size:12.5px}
+.lfield .inp{position:relative;display:block}
+.lfield input{width:100%;box-sizing:border-box;border:1.5px solid var(--line);border-radius:10px;padding:13px 16px;min-height:50px;background:var(--surface);color:var(--fg);font-size:15.5px;font-weight:400;transition:border-color .15s,box-shadow .15s}
+.lfield input:hover{border-color:var(--muted)}
+.lfield input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 20%,transparent)}
+.lfield .inp.pw input{padding-right:72px}
+.lfield .show{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:none;color:var(--accent-ink);font:600 13px var(--f-body);padding:8px 12px;border-radius:6px;min-height:36px}
+.lfield .show:hover{background:var(--tint)}
+.err{display:flex;gap:10px;align-items:flex-start;background:var(--red-bg);color:var(--red);border-radius:10px;padding:12px 14px;font-size:14px;font-weight:600;line-height:1.5}
+.err svg{flex:none;margin-top:2px}
+.lgo{width:100%;min-height:54px;font-size:16px;border-radius:10px;display:flex;align-items:center;justify-content:center;gap:10px;transition:background .15s,transform .1s}
+.lgo:hover{background:var(--accent);border-color:var(--accent);color:#fff}
+.lgo:active{transform:translateY(1px)}
+.ldemo{border:1.5px dashed var(--line);border-radius:12px;padding:18px 20px;background:var(--soft);display:grid;gap:12px}
+.ldemo .top{display:flex;justify-content:space-between;gap:8px 16px;flex-wrap:wrap;align-items:baseline}
+.ldemo .top span:last-child{font-size:12.5px;color:var(--muted)}
+.dacc{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 14px;align-items:center;width:100%;text-align:left;border:1px solid var(--line2);background:var(--surface);border-radius:8px;padding:10px 14px;min-height:48px;transition:border-color .15s}
+.dacc:hover{border-color:var(--accent)}
+.dacc code{font-size:13px;overflow-wrap:anywhere}
+.dacc em{font-style:normal;font-size:12.5px;color:var(--muted)}
+.dacc .chip{justify-self:end}
+.lfoot{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px 24px;font-size:12.5px;line-height:1.55;color:var(--muted);padding-inline:6px}
+.lfoot code{font-size:12px}
+@media (max-width:900px){
+  .lbox{grid-template-columns:1fr}
+  .lside{padding:36px 32px;gap:28px}
+  .lside h1{font-size:32px}
+  .lform{padding:36px 32px}
+}
+@media (max-width:560px){
+  .login{padding-block:20px}
+  .lside{padding:28px 22px}
+  .lform{padding:28px 22px;gap:22px}
+  .seg{grid-template-columns:1fr}
+  .lhead h2{font-size:26px}
+}
+.err{border-radius:10px}
+.snip{font-size:13.5px;line-height:1.55;border-left:3px solid var(--line);padding-left:10px}
+.task{border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;gap:6px}
+.task.doneT{opacity:.65}
+.tl{list-style:none;margin:0;padding:0;display:grid}
+.tl li{display:grid;grid-template-columns:96px 14px minmax(0,1fr);gap:8px;padding-bottom:12px}
+.tl .dot{width:12px;height:12px;border-radius:50%;background:var(--accent);margin-top:5px;box-shadow:0 0 0 3px var(--teal-bg)}
+.tl time{font:500 12px var(--f-mono);color:var(--muted);padding-top:2px}
+.foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 16px;font-size:12.5px;color:var(--muted);margin-top:24px;padding-top:12px;border-top:1px solid var(--line)}
+.hbtn[aria-pressed="true"]{background:rgba(255,255,255,.14);border-color:var(--amber)}
+.flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px}
+.flow div{border:1px solid var(--line);border-radius:6px;padding:7px 10px;font-size:13px;display:grid;gap:2px}
+.flow div.on{border-color:var(--ok);background:var(--ok-bg)}
+.flow div.cur{border-color:var(--accent);background:var(--tint)}
+</style>
+
+<div id="app"></div>
+
+<script>
+(function(){
+const $ = (s) => document.querySelector(s);
+const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---------------- demo accounts ---------------- */
+const USERS = {
+  'a.rao@suvidha.demo':   { name:'A. Rao', role:'admin', title:'Claims admin', pw:'demo1234' },
+  's.menon@suvidha.demo': { name:'Dr. S. Menon', role:'doctor', title:'Consultant, General Surgery', pw:'demo1234' },
+  'k.iyer@suvidha.demo':  { name:'K. Iyer', role:'doctor', title:'Medical records staff', pw:'demo1234' },
+};
+
+/* ---------------- synthetic data ---------------- */
+const PATIENTS = {
+  'SYN-P-1042': { sex:'F', age:46, dx:'K80.2 · Calculus of gall bladder', proc:'Laparoscopic cholecystectomy', doctor:'Dr. S. Menon', claim:'SUV-261028-01', stage:'Pre-submission', adm:'08 Oct', dis:'11 Oct' },
+  'SYN-P-1077': { sex:'M', age:61, dx:'I21.0 · Acute STEMI, anterior wall', proc:'PTCA with single DES', doctor:'Dr. R. Varma', claim:'SUV-261027-03', stage:'In treatment', adm:'26 Oct', dis:'—' },
+  'SYN-P-1103': { sex:'F', age:32, dx:'O82 · Delivery by caesarean section', proc:'Elective LSCS', doctor:'Dr. S. Menon', claim:'SUV-261026-02', stage:'Discharge', adm:'24 Oct', dis:'27 Oct' },
+  'SYN-P-1120': { sex:'M', age:54, dx:'H25.1 · Age-related nuclear cataract', proc:'Phaco with foldable IOL, right eye', doctor:'Dr. P. Nair', claim:'SUV-261025-05', stage:'Settled', adm:'20 Oct', dis:'20 Oct' },
+};
+const F = (id,name,pt,cls,pages,chunks,ocr,status,up,by,chunksTxt,detail) => ({id,name,pt,cls,pages,chunks,ocr,status,up,by,txt:chunksTxt,detail:detail||''});
+const FILES = [
+  F('f-1042-01','opd_consultation.pdf','SYN-P-1042','admission',2,6,0,'INDEXED','28 Oct 11:27','A. Rao',[
+    [1,'Chief complaint','Recurrent right upper quadrant pain for 4 months, worse after fatty meals. No jaundice.'],
+    [1,'Assessment','Symptomatic cholelithiasis. Advised laparoscopic cholecystectomy. ICD-10 K80.2.']]),
+  F('f-1042-02','usg_abdomen.pdf','SYN-P-1042','lab',1,3,0,'INDEXED','28 Oct 11:27','A. Rao',[
+    [1,'Impression','Multiple calculi in gall bladder, largest 14 mm. Wall thickness 3 mm. CBD 5 mm, not dilated.']]),
+  F('f-1042-03','operation_note.pdf','SYN-P-1042','operative',2,5,0,'INDEXED','28 Oct 11:27','A. Rao',[
+    [1,'Procedure','Laparoscopic cholecystectomy under general anaesthesia on 9 Oct. Critical view of safety achieved.'],
+    [2,'Specimen','Gall bladder sent for histopathology. Report awaited.']]),
+  F('f-1042-04','anaesthesia_record.jpg','SYN-P-1042','operative',1,2,1,'INDEXED','28 Oct 11:29','A. Rao',[
+    [1,'Record (scanned)','Induction 13:32, extubation 15:05. ASA II. Anaesthetist signature: blank.']],'Read on the second try'),
+  F('f-1042-05','discharge_summary.pdf','SYN-P-1042','discharge',3,8,0,'INDEXED','28 Oct 11:27','A. Rao',[
+    [1,'Course in hospital','Uneventful post-operative recovery. Discharged on 11 Oct at 10:00.'],
+    [2,'Advice on discharge','Tab. paracetamol 650 mg SOS. Review in OPD after 7 days with histopathology report.']]),
+  F('f-1042-06','discharge_summary (1).pdf','SYN-P-1042','discharge',3,0,0,'DUPLICATE','28 Oct 11:27','A. Rao',[],'Same file as discharge_summary.pdf, not stored twice'),
+  F('f-1077-01','admission_note.pdf','SYN-P-1077','admission',2,5,0,'INDEXED','26 Oct 22:10','K. Iyer',[
+    [1,'History','Central chest pain for 2 hours, radiating to left arm, with sweating. Known hypertensive.']]),
+  F('f-1077-02','ecg_report.pdf','SYN-P-1077','lab',1,2,0,'INDEXED','26 Oct 22:12','K. Iyer',[
+    [1,'Findings','ST elevation in V1 to V4. Impression: acute anterior wall STEMI.']]),
+  F('f-1077-03','troponin_lab.pdf','SYN-P-1077','lab',1,2,0,'INDEXED','26 Oct 22:40','K. Iyer',[
+    [1,'Result','hs-Troponin I 4,820 ng/L (reference below 26 ng/L).']]),
+  F('f-1077-04','angiography_report.pdf','SYN-P-1077','operative',2,4,0,'INDEXED','27 Oct 09:05','K. Iyer',[
+    [1,'Findings','LAD proximal 95% thrombotic occlusion. PTCA with one drug-eluting stent 3.0 x 28 mm. TIMI III flow.']]),
+  F('f-1103-01','antenatal_card.jpg','SYN-P-1103','admission',1,3,1,'INDEXED','27 Oct 16:02','K. Iyer',[
+    [1,'Card (scanned)','G2P1, previous LSCS 2022. 38 weeks. Planned elective repeat LSCS.']]),
+  F('f-1103-02','lscs_operation_note.pdf','SYN-P-1103','operative',2,4,0,'INDEXED','27 Oct 16:02','K. Iyer',[
+    [1,'Procedure','Elective repeat LSCS under spinal anaesthesia. Live female baby, 3.1 kg, APGAR 8 and 9.']]),
+  F('f-1103-03','cbc_report.pdf','SYN-P-1103','lab',1,2,0,'INDEXED','27 Oct 16:03','K. Iyer',[
+    [1,'Result','Haemoglobin 10.8 g/dL on post-operative day 1. Platelets 2.1 lakh/µL.']]),
+  F('f-1103-04','discharge_summary.pdf','SYN-P-1103','discharge',2,5,0,'INDEXED','27 Oct 16:04','K. Iyer',[
+    [1,'Course in hospital','Mother and baby stable. Discharged on post-operative day 3.']]),
+  F('f-1120-01','a_scan_biometry.pdf','SYN-P-1120','lab',1,2,0,'INDEXED','20 Oct 15:40','K. Iyer',[
+    [1,'Biometry','Right eye axial length 23.41 mm. IOL power +21.5 D (SRK/T).']]),
+  F('f-1120-02','consent_form.jpg','SYN-P-1120','admission',1,0,1,'EXTRACTION_FAILED','20 Oct 15:41','K. Iyer',[],'Phone photo too blurry to read. Re-scan and upload again.'),
+  F('f-1120-03','op_note.pdf','SYN-P-1120','operative',1,3,0,'INDEXED','20 Oct 15:41','K. Iyer',[
+    [1,'Procedure','Phacoemulsification with foldable IOL, right eye, under topical anaesthesia. No complications.']]),
+];
+
+/* ---------------- state ---------------- */
+const S = {
+  user:null, loginRole:'admin', loginErr:'', lEmail:'', lPw:'demo1234',
+  view:null,
+  dev:true,
+  desk:{ step:0, uploaded:false, retried:false, q:0, asked:false, gapsRun:false, integrityRun:false, decision:null, submitted:false },
+  fq:{ q:'', cls:'all', status:'all', pt:'all', sel:null },
+  ask:{ pt:'SYN-P-1042', qi:-1, free:'', freeRes:null },
+  pt:'SYN-P-1042',
+  tasks:{},
+  log:[],
+};
+const now = () => { const d = new Date(); return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); };
+const log = (what) => S.log.unshift({ time: now(), who: S.user ? S.user.name : 'Sky Claims', what });
+
+try { const raw = sessionStorage.getItem('skyclaims.user'); if (raw && USERS[raw]) login(raw, true); } catch(e) {}
+try { if (localStorage.getItem('skyclaims.dev') === '0') S.dev = false; } catch(e) {}
+
+function login(email, silent){
+  const u = USERS[email];
+  S.user = Object.assign({ email }, u);
+  S.view = u.role === 'admin' ? 'worklist' : 'files';
+  if (!silent) log('signed in as ' + (u.role === 'admin' ? 'Admin' : 'Doctor / Staff'));
+  try { sessionStorage.setItem('skyclaims.user', email); } catch(e) {}
+}
+
+/* ---------------- shared bits ---------------- */
+const LOGO = '<svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="13" fill="none" stroke="#D98A1C" stroke-width="2.5"></circle><path d="M8 18 Q15 6 22 18" fill="none" stroke="#5DB6DD" stroke-width="2.5" stroke-linecap="round"></path></svg>';
+/* file status from the API (INDEXED / DUPLICATE / EXTRACTION_FAILED) shown in plain words */
+const statusChip = (st) => st === 'INDEXED' ? '<span class="chip ok">READY</span>' : st === 'DUPLICATE' ? '<span class="chip amb">DUPLICATE COPY</span>' : '<span class="chip red">COULDN’T READ</span>';
+const DOC_TYPE = { admission:'Admission', lab:'Lab / imaging', operative:'Operation', discharge:'Discharge', billing:'Billing' };
+const docType = (c) => DOC_TYPE[c] || c;
+const stageChip = (st) => {
+  const m = { 'Pre-auth':'teal', 'In treatment':'teal', 'Discharge':'amb', 'Pre-submission':'amb', 'Submitted':'teal', 'Settled':'ok' };
+  return '<span class="chip ' + (m[st] || 'grey') + '">' + esc(st.toUpperCase()) + '</span>';
+};
+/* READY = endpoint exists in the backend today; NEEDED = must be added before this screen can be wired */
+const tag = (t) => t === 'READY' ? '<span class="chip ok">READY</span>' : '<span class="chip amb">' + t + '</span>';
+function apiRail(title, apis, snippet){
+  if (!S.dev) return '';
+  return '<section class="card"><div class="railhd lbl"><span>API for this screen</span><span>' + esc(title) + '</span></div><ul class="list">' +
+    apis.map(a => '<li><div class="row" style="gap:6px"><span class="meth">' + a[0] + '</span><code style="font-size:12.5px;overflow-wrap:anywhere;min-width:0">' + esc(a[1]) + '</code>' + tag(a[2]) + '</div><span class="small muted">' + esc(a[3]) + '</span></li>').join('') +
+    '</ul>' + (snippet ? '<pre class="code" style="margin:0 8px 8px">' + esc(snippet) + '</pre>' : '') + '</section>';
+}
+function activityRail(){
+  const items = S.log.length ? S.log : [{ time:'—', who:'Waiting', what:'Nothing yet in this session.' }];
+  return '<section class="card"><div class="railhd lbl"><span>Activity · audit</span><span>newest first</span></div><ol class="act">' +
+    items.slice(0, 8).map(l => '<li><time>' + esc(l.time) + '</time><span><b style="font-weight:600">' + esc(l.who) + '</b> · ' + esc(l.what) + '</span></li>').join('') + '</ol></section>';
+}
+
+/* ================= LOGIN ================= */
+function viewLogin(){
+  const adm = S.loginRole === 'admin';
+  const email = S.lEmail || (adm ? 'a.rao@suvidha.demo' : 's.menon@suvidha.demo');
+  const ic = (d) => '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
+  return '<div class="wrap login"><div class="lshell"><div class="card lbox">' +
+    '<div class="lside"><div class="brand">' + LOGO + '<b>Sky Claims<small>BY SKYLARN AI</small></b></div>' +
+    '<div class="lhero"><span class="lbl">Hyderabad · tenant SYN-HOSP-01</span><h1>Suvidha Hospital</h1>' +
+    '<p class="lead">One secure workspace that turns scattered patient documents into clean, evidence-backed insurance claims.</p></div>' +
+    '<ul class="lfeat">' +
+      '<li><span class="ic">' + ic('<path d="M9 12l2 2 4-4"/><path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6z"/>') + '</span><div><b>ADMIN</b><span>Claims desk: upload, extract, gap check, integrity, sign-off and submission.</span></div></li>' +
+      '<li><span class="ic">' + ic('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/>') + '</span><div><b>DOCTOR / STAFF</b><span>Find patient documents, ask questions about a patient, and complete the to-dos the claims team sends you.</span></div></li>' +
+    '</ul>' +
+    '<div class="lnote">Demo workspace. Suvidha Hospital and all patient data are fictional.</div></div>' +
+    '<form class="lform" id="loginForm" novalidate onsubmit="return false">' +
+      '<div class="lhead"><h2>Welcome back</h2><p>Sign in to continue. Your role decides which screens you see, so pick how you’ll be working today.</p></div>' +
+      '<div class="lgroup"><span class="lbl">I’m signing in as</span><div class="seg" role="group" aria-label="Role">' +
+        '<button type="button" data-a="loginRole" data-v="admin" aria-pressed="' + adm + '"><b>Admin</b><small>Run the claims workflow from upload to submission</small></button>' +
+        '<button type="button" data-a="loginRole" data-v="doctor" aria-pressed="' + !adm + '"><b>Doctor / Staff</b><small>Find patient documents and complete your to-dos</small></button>' +
+      '</div></div>' +
+      '<div class="lfields">' +
+        '<label class="lfield">Work email<span class="inp"><input id="lEmail" type="email" autocomplete="username" placeholder="name@hospital.org" value="' + esc(email) + '"></span></label>' +
+        '<label class="lfield">Password<span class="inp pw"><input id="lPw" type="password" autocomplete="current-password" placeholder="Enter your password" value="' + esc(S.lPw) + '"><button type="button" class="show" data-a="togglePw" aria-label="Show password">Show</button></span></label>' +
+      '</div>' +
+      (S.loginErr ? '<div class="err" role="alert"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.5"/></svg><span>' + esc(S.loginErr) + '</span></div>' : '') +
+      '<button class="btn pri lgo" type="button" data-a="doLogin">Sign in <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>' +
+      '<div class="ldemo"><div class="top"><span class="lbl">Demo accounts</span><span>Tap one to fill it in · password demo1234</span></div>' +
+        '<button type="button" class="dacc" data-a="fillDemo" data-v="a.rao@suvidha.demo"><code>a.rao@suvidha.demo</code><span class="chip teal">ADMIN</span></button>' +
+        '<button type="button" class="dacc" data-a="fillDemo" data-v="s.menon@suvidha.demo"><code>s.menon@suvidha.demo</code><span class="chip grey">DOCTOR</span></button>' +
+        '<button type="button" class="dacc" data-a="fillDemo" data-v="k.iyer@suvidha.demo"><code>k.iyer@suvidha.demo</code><span class="chip grey">RECORDS STAFF</span></button>' +
+      '</div>' +
+    '</form></div>' +
+    '<div class="lfoot"><span>' + (S.dev ? 'API · NEEDED: <code>POST /api/v1/auth/login</code> → session cookie + role. Backend calls today use an <code>X-API-Key</code>; keep it server-side, never in the browser.' : '') + '</span><span>© Sky Claims by Skylarn AI</span></div>' +
+    '</div></div>';
+}
+
+/* ================= SHELL ================= */
+const NAV = {
+  admin: [['worklist','Claims'],['desk','Work on a claim'],['users','Users & access']],
+  doctor: [['files','Patient documents'],['ask','Ask about a patient'],['patients','Patient summary'],['tasks','My to-dos']],
+};
+function shell(body){
+  const u = S.user, adm = u.role === 'admin';
+  return '<header class="hdr"><div class="wrap">' +
+    '<div class="brand">' + LOGO + '<b>Sky Claims<small>BY SKYLARN AI</small></b></div>' +
+    '<div class="hosp">Suvidha Hospital<small>Hyderabad · ' + (adm ? 'claims desk' : 'clinical records') + '</small></div>' +
+    '<div class="who"><span class="pill">' + esc(u.name) + ' · ' + esc(u.title) + '</span><span class="role-tag">' + (adm ? 'ADMIN' : 'DOCTOR / STAFF') + '</span>' +
+    '<button class="hbtn" data-a="toggleDev" aria-pressed="' + S.dev + '" title="Show or hide the API panels used for development">API panel</button>' +
+    '<button class="hbtn" data-a="logout">Sign out</button></div></div></header>' +
+    '<nav class="tabs" aria-label="Sections"><div class="wrap">' +
+    NAV[u.role].map(n => '<button class="tab" data-a="nav" data-v="' + n[0] + '"' + (S.view === n[0] ? ' aria-current="page"' : '') + '>' + n[1] + (n[0] === 'tasks' ? '<span class="tg">' + TASKS.filter(t => !S.tasks[t[0]]).length + '</span>' : '') + '</button>').join('') +
+    '</div></nav><main class="wrap">' + body +
+    '<div class="foot"><span>Demo workspace. Patients, payers, amounts and codes are fictional.</span><span>© Sky Claims by Skylarn AI</span></div></main>';
+}
+
+/* ================= ADMIN · WORKLIST ================= */
+const CLAIMS = [
+  ['SUV-261028-01','SYN-P-1042','Laparoscopic cholecystectomy','Insurer SYN-07 · TPA SYN-3','₹1,48,600','Pre-submission','3 items to fix','amb',true],
+  ['SUV-261027-03','SYN-P-1077','PTCA with single DES','PM-JAY','₹1,10,000','In treatment','Pre-auth approved','ok',false],
+  ['SUV-261026-02','SYN-P-1103','Elective LSCS','Insurer SYN-02','₹62,400','Discharge','Discharge summary not signed','amb',false],
+  ['SUV-261025-05','SYN-P-1120','Phaco + IOL, right eye','Insurer SYN-07 · TPA SYN-3','₹38,900','Settled','Paid ₹36,450','ok',false],
+];
+function viewWorklist(){
+  const t = [['open claims','3'],['awaiting approval','1'],['items to fix','4'],['settled this week','1']];
+  return '<div class="cols"><div class="main stack">' +
+    '<h2 style="font-size:20px">Claims</h2>' +
+    '<div class="tiles">' + t.map(x => '<div class="tile"><div class="lbl">' + x[0] + '</div><div class="v">' + x[1] + '</div></div>').join('') + '</div>' +
+    '<div class="tblw"><table style="min-width:820px"><thead><tr><th>CLAIM</th><th>PATIENT</th><th>PROCEDURE</th><th>PAYER</th><th class="num">AMOUNT</th><th>STAGE</th><th>STATUS</th><th></th></tr></thead><tbody>' +
+    CLAIMS.map(c => '<tr><td class="mono" style="font-size:12.5px;color:var(--accent)">' + c[0] + '</td><td class="mono" style="font-size:12.5px">' + c[1] + '</td><td>' + esc(c[2]) + '</td><td class="small muted">' + esc(c[3]) + '</td><td class="num">' + c[4] + '</td><td>' + stageChip(c[5]) + '</td><td><span class="chip ' + c[7] + '">' + esc(c[6]) + '</span></td><td>' +
+      (c[8] ? '<button class="btn sm pri" data-a="nav" data-v="desk">Open</button>' : '<button class="btn sm" disabled title="Only SUV-261028-01 is loaded in this demo">Open</button>') + '</td></tr>').join('') +
+    '</tbody></table></div></div>' +
+    (S.dev ? '<aside class="rail">' + apiRail('claims', [['GET','/api/v1/claims/intake/{intake_id}','READY','One claim intake record'],['GET','/api/v1/reviews/pending','READY','Claims waiting for approval (tile count)'],['GET','/api/v1/claims/submissions','READY','Submitted claims and their status'],['GET','/api/v1/claims?stage=&page=','NEEDED','Paged claim list for this table (claim, patient, payer, amount, stage)']]) + '</aside>' : '') +
+    '</div>';
+}
+
+/* ================= ADMIN · CLAIM DESK ================= */
+const STG = [
+  ['Upload','files or a ZIP'],
+  ['Read documents','text and scans'],
+  ['Ask','questions with sources'],
+  ['Check gaps','payer rules, claim packet'],
+  ['Integrity','duplicates, tampering, IDs'],
+  ['Approve & submit','sign off, send to payer'],
+];
+/* answer: segs = [text, isCitation]; cites = [n, file, page, match %, scanned] */
+const QS = [
+  { text:'What procedure was done, and when?', found:true,
+    segs:[['Laparoscopic cholecystectomy was performed under general anaesthesia on 9 Oct ',0],['[1]',1],['. The discharge summary confirms a discharge on 11 Oct at 10:00 ',0],['[2]',1],['.',0]],
+    cites:[[1,'operation_note.pdf',1,94,0],[2,'discharge_summary.pdf',1,88,0]] },
+  { text:'Is the anaesthesia record signed?', found:true,
+    segs:[['The anaesthesia record lists induction at 13:32 and extubation at 15:05, but the anaesthetist signature field is blank ',0],['[1]',1],['.',0]],
+    cites:[[1,'anaesthesia_record.jpg',1,91,1]] },
+  { text:'What is the patient’s blood group?', found:false,
+    segs:[['The uploaded documents do not contain this information.',0]], cites:[] },
+];
+function answerBlock(qa){
+  return '<div style="background:var(--tint);border:1px solid var(--line);border-radius:8px;padding:14px 16px">' +
+    '<div class="row" style="margin-bottom:6px"><span class="lbl">Answer</span>' + (qa.found ? '<span class="chip ok">FROM ' + qa.cites.length + ' DOCUMENT' + (qa.cites.length > 1 ? 'S' : '') + '</span>' : '<span class="chip grey">NOT IN THE DOCUMENTS</span>') + '</div>' +
+    '<p style="margin:0;font-size:15.5px;line-height:1.65">' + qa.segs.map(g => g[1] ? '<span class="cite">' + esc(g[0]) + '</span>' : esc(g[0])).join('') + '</p></div>' +
+    (qa.cites.length ? '<div style="display:grid;gap:6px"><div class="lbl">Sources</div>' + qa.cites.map(c =>
+      '<div class="row" style="border:1px solid var(--line);border-radius:6px;padding:7px 10px;font-size:13.5px;gap:4px 12px"><span class="mono" style="font-size:12px;font-weight:600;color:var(--accent)">[' + c[0] + ']</span><b style="font-weight:600">' + esc(c[1]) + '</b><span class="muted">Page ' + c[2] + (c[4] ? ' · scanned' : '') + ' · ' + c[3] + '% match</span></div>').join('') + '</div>' : '');
+}
+const GAPS = [
+  ['SHOULD FIX','amb','Anaesthesia record not signed','Insurer SYN-07 returns surgical claims with an unsigned anaesthesia record. A signature request has gone to Dr. S. Menon.','anaesthesia_record.jpg · page 1 (scanned)','t1'],
+  ['SHOULD FIX','amb','Policy schedule not uploaded','The room-rent limit and the 24-month waiting period for gall bladder disease cannot be checked without it.','Missing document · payer rule SYN-07/R-12',null],
+  ['SHOULD FIX','amb','Histopathology report pending','This insurer accepts it as "to follow" for this package. Add a line to the cover note.','operation_note.pdf · page 2',null],
+  ['PASSED','ok','Diagnosis matches the procedure','K80.2 is an accepted diagnosis for laparoscopic cholecystectomy.','opd_consultation.pdf · page 1',null],
+  ['PASSED','ok','Every billed item is documented','Each bill line maps to the operation note and the hospital tariff.','final_bill.xlsx · sheet 1',null],
+];
+const openGaps = () => GAPS.filter(g => g[1] === 'amb' && !(g[5] && S.tasks[g[5]])).length;
+/* integrity check_type → plain label; result_flag PASS | SOFT_WARN | HARD_FAIL */
+const INTEGRITY = [
+  ['EXACT_DUPE','PASS','Duplicate documents','No identical copy of these files in earlier claims. One duplicate inside this upload was already set aside.'],
+  ['SEMANTIC_DUPE','PASS','Resubmitted claim','Not similar to any earlier rejected claim from this hospital.'],
+  ['FUZZY_MATCH','PASS','Pre-existing condition','No earlier record of gall bladder disease before the policy start date.'],
+  ['TAMPERING','SOFT_WARN','Document tampering','anaesthesia_record.jpg was re-saved by an editing app after the scan date. Often harmless (rotated or cropped); check before approving.'],
+  ['ID_VERIFY','PASS','Policy and ID checks','Policy POL-SYN-77120 is valid and active for this patient.'],
+  ['ANOMALY','PASS','Unusual billing','Bill total is within the normal range for this package.'],
+];
+const FLAG = { PASS:['ok','PASSED'], SOFT_WARN:['amb','CHECK'], HARD_FAIL:['red','FAILED'] };
+function viewDesk(){
+  const s = S.desk, anFailed = !s.retried, gapsLeft = openGaps();
+  const reached = [true, s.uploaded, s.uploaded, s.uploaded, s.gapsRun, s.integrityRun];
+  let statusText = 'Waiting for documents', statusCls = 'teal';
+  if (s.uploaded) { statusText = anFailed ? '1 file couldn’t be read' : 'Documents ready'; statusCls = anFailed ? 'red' : 'teal'; }
+  if (s.gapsRun) { statusText = 'Claim packet ready'; statusCls = 'teal'; }
+  if (s.integrityRun) { statusText = 'Waiting for approval'; statusCls = 'amb'; }
+  if (s.decision === 'REJECTED') { statusText = 'Sent back to hospital'; statusCls = 'red'; }
+  else if (s.decision) { statusText = 'Approved'; statusCls = 'ok'; }
+  if (s.submitted) { statusText = 'Submitted to TPA SYN-3'; statusCls = 'ok'; }
+
+  const header = '<section class="card pad between" style="align-items:flex-start">' +
+    '<div style="min-width:0;flex:1 1 520px"><div class="mono" style="font-size:12px;color:var(--accent)">SUV-261028-01 · Private cashless</div>' +
+    '<h1 style="font-size:22px;margin:2px 0 6px">Laparoscopic cholecystectomy</h1>' +
+    '<div class="row muted" style="font-size:13.5px;gap:4px 18px"><span>Patient <b style="color:var(--fg);font-weight:600">SYN-P-1042 · F · 46</b></span><span>Payer <b style="color:var(--fg);font-weight:600">Insurer SYN-07 via TPA SYN-3</b></span><span>Policy <b style="color:var(--fg);font-weight:600">POL-SYN-77120</b></span><span>Treating doctor <b style="color:var(--fg);font-weight:600">Dr. S. Menon</b></span></div></div>' +
+    '<div style="display:grid;gap:8px;justify-items:end"><div style="font:800 20px var(--f-display);text-align:right">₹1,48,600<span class="lbl" style="display:block;font-size:11px">Estimated claim value</span></div>' +
+    '<div class="row" style="justify-content:flex-end"><span class="pillc ' + statusCls + '">' + statusText + '</span>' + (s.gapsRun && gapsLeft && !s.submitted ? '<span class="pillc amb">' + gapsLeft + ' to fix</span>' : '') + '</div></div></section>';
+
+  const stages = '<nav class="stages" aria-label="Claim steps" style="margin:12px 0">' + STG.map((g,i) => {
+    const on = i === s.step, done = reached[i] && i < s.step;
+    return '<button class="stg' + (done ? ' done' : '') + '" data-a="step" data-v="' + i + '"' + (on ? ' aria-current="step"' : '') + '>' +
+      '<b>' + (i+1) + ' · ' + g[0] + '</b><span class="sub">' + g[1] + '</span></button>';
+  }).join('') + '</nav>';
+
+  let body = '';
+  const h = (t, sub) => '<div class="between"><h2 style="font-size:18px">' + t + '</h2>' + (sub ? '<span class="small muted">' + sub + '</span>' : '') + '</div>';
+  const need = (step, what) => '<div style="border:1px dashed var(--line);border-radius:8px;padding:16px" class="muted">' + what + ' <button class="link" data-a="step" data-v="' + step + '">Go to step ' + (step + 1) + '.</button></div>';
+
+  if (s.step === 0) {
+    body = h('Upload claim documents');
+    if (!s.uploaded) {
+      body += '<div style="border:2px dashed var(--line);border-radius:10px;background:var(--tint);padding:18px;display:grid;gap:10px">' +
+        '<div class="row" style="gap:8px 14px"><b>Drop files or a ZIP here</b><span class="small muted">PDF, Word, Excel, CSV, JSON and images. ZIP files are opened and every file is checked and virus-scanned.</span><button class="btn sm" style="margin-left:auto">Choose files</button></div>' +
+        [['claim_docs.zip','6 files · 4.8 MB'],['discharge_summary (1).pdf','412 KB'],['tariff_tool.exe','1.1 MB']].map(p => '<div class="between" style="background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:7px 10px;font-size:14px"><b style="font-weight:600;overflow-wrap:anywhere">' + p[0] + '</b><span class="mono small muted">' + p[1] + '</span></div>').join('') + '</div>' +
+        '<div class="row"><button class="btn acc" data-a="upload">Upload 3 items</button><span class="small muted">Files are stored securely and read automatically after upload.</span></div>';
+    } else {
+      const cnt = [['received','9',''],['accepted','7','var(--ok)'],['failed','0',''],['not allowed','1','var(--red)'],['duplicates','1','var(--amb)'],['in progress','0','']];
+      const rows = [['claim_docs.zip','ok','ACCEPTED','ZIP opened: 6 files, all scanned','4.8 MB',0],['opd_consultation.pdf','ok','ACCEPTED','Stored and verified','188 KB',1],['usg_abdomen.pdf','ok','ACCEPTED','Stored and verified','240 KB',1],['operation_note.pdf','ok','ACCEPTED','Stored and verified','302 KB',1],['anaesthesia_record.jpg','ok','ACCEPTED','Scanned image, text will be read from the picture','2.9 MB',1],['discharge_summary.pdf','ok','ACCEPTED','Stored and verified','412 KB',1],['final_bill.xlsx','ok','ACCEPTED','2 sheets, tables kept','96 KB',1],['discharge_summary (1).pdf','amb','DUPLICATE','Same file as discharge_summary.pdf, not stored twice','412 KB',0],['tariff_tool.exe','red','NOT ALLOWED','Program files can’t be uploaded','1.1 MB',0]];
+      body += '<div class="tiles">' + cnt.map(c => '<div class="tile"><div class="lbl">' + c[0] + '</div><div class="v"' + (c[2] ? ' style="color:' + c[2] + '"' : '') + '>' + c[1] + '</div></div>').join('') + '</div>' +
+        '<div class="tblw"><table style="min-width:640px"><thead><tr><th>FILE</th><th>RESULT</th><th>DETAIL</th><th class="num">SIZE</th></tr></thead><tbody>' +
+        rows.map(r => '<tr><td style="font-weight:600;overflow-wrap:anywhere;' + (r[5] ? 'padding-left:26px' : '') + '">' + (r[5] ? '↳ ' : '') + r[0] + '</td><td><span class="chip ' + r[1] + '">' + r[2] + '</span></td><td class="small muted">' + r[3] + '</td><td class="num mono small muted">' + r[4] + '</td></tr>').join('') +
+        '</tbody></table></div><div class="row"><button class="btn pri" data-a="step" data-v="1">Next: read documents →</button><button class="btn" data-a="resetDesk">↺ Start over</button></div>';
+    }
+  }
+  if (s.step === 1) {
+    body = h('Read the documents', 'Text is pulled from every file, including scans, so it can be searched');
+    if (!s.uploaded) body += need(0, 'Nothing uploaded yet.'); else {
+      const ex = [['opd_consultation.pdf','admission','2 pages',0],['usg_abdomen.pdf','lab','1 page',0],['operation_note.pdf','operative','2 pages',0],['anaesthesia_record.jpg','operative','1 page · scanned',anFailed],['discharge_summary.pdf','discharge','3 pages',0],['final_bill.xlsx','billing','2 sheets · 2 tables',0]];
+      body += '<div class="tiles">' + [['files ready',anFailed ? '5 of 6' : '6 of 6'],['pages read',anFailed ? '9' : '10'],['scanned pages',anFailed ? '0' : '1'],['tables kept','2']].map(c => '<div class="tile"><div class="lbl">' + c[0] + '</div><div class="v">' + c[1] + '</div></div>').join('') + '</div>' +
+        ex.map(e => '<div style="border:1px solid ' + (e[3] ? 'var(--red)' : 'var(--line)') + ';border-radius:8px;padding:10px 12px"><div class="between"><div style="min-width:0"><b style="overflow-wrap:anywhere">' + e[0] + '</b> <span class="chip teal">' + docType(e[1]).toUpperCase() + '</span></div><span class="row" style="gap:8px"><span class="small muted">' + e[2] + '</span>' + statusChip(e[3] ? 'EXTRACTION_FAILED' : 'INDEXED') + '</span></div>' +
+          (e[3] ? '<div class="row" style="margin-top:8px;background:var(--red-bg);border-radius:6px;padding:7px 10px;font-size:13.5px"><span style="color:var(--red);font-weight:600">Reading the scan timed out. It can be tried again.</span><button class="btn sm warn" style="margin-left:auto" data-a="retry">Try again</button></div>' : '') + '</div>').join('') +
+        '<div class="row"><button class="btn pri" data-a="step" data-v="2">Next: ask questions →</button></div>';
+    }
+  }
+  if (s.step === 2) {
+    body = h('Ask about this claim', 'Answers use only this patient’s documents and show their sources');
+    if (!s.uploaded) body += need(0, 'Nothing uploaded yet.'); else {
+      body += '<div class="row" style="gap:6px">' + QS.map((q,i) => '<button class="qbtn" data-a="deskQ" data-v="' + i + '" aria-pressed="' + (s.asked && s.q === i) + '">' + esc(q.text) + '</button>').join('') + '</div>';
+      if (s.asked) body += answerBlock(QS[s.q]) +
+        '<div class="tile" style="background:var(--surface);display:grid;gap:6px"><b style="font:700 14px var(--f-display)">Answer check</b>' +
+        [['Backed by the documents',QS[s.q].found ? 'Yes' : '—'],['Answers the question',QS[s.q].found ? '5 / 5' : '—'],['Clinically safe','Yes']].map(e => '<div class="kv"><span>' + e[0] + '</span><b>' + e[1] + '</b></div>').join('') + '</div>';
+      body += '<div class="row"><button class="btn pri" data-a="step" data-v="3">Next: check gaps →</button></div>';
+    }
+  }
+  if (s.step === 3) {
+    body = h('Check gaps against payer rules', 'Insurer SYN-07 rules in force on 9 Oct');
+    if (!s.uploaded) body += need(0, 'Nothing uploaded yet.');
+    else if (!s.gapsRun) body += '<div class="muted">Checks the documents against the payer’s rules, the disease registry and the hospital tariff, then builds the claim packet.</div><div class="row"><button class="btn acc" data-a="runGaps">Run gap check</button></div>';
+    else {
+      body += '<div class="row" style="gap:6px"><span class="pillc ok">Nothing blocks this claim</span><span class="pillc amb">' + gapsLeft + ' to fix</span><span class="pillc teal">2 passed</span></div>' +
+        GAPS.map(g => { const fixed = g[5] && S.tasks[g[5]];
+          return '<div style="border:1px solid var(--line);border-radius:8px;padding:9px 12px;display:flex;gap:8px;align-items:flex-start"><span class="chip ' + (fixed ? 'ok' : g[1]) + '">' + (fixed ? 'FIXED' : g[0]) + '</span><div style="display:grid;gap:2px;min-width:0"><b style="font-size:14.5px">' + g[2] + '</b><span class="small muted">' + (fixed ? 'Resolved by Dr. S. Menon at ' + fixed + '.' : g[3]) + '</span><span class="mono" style="font-size:11.5px;color:var(--teal);overflow-wrap:anywhere">source: ' + g[4] + '</span></div></div>'; }).join('') +
+        '<div style="border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;gap:8px"><div class="between"><b style="font:700 14.5px var(--f-display)">Claim packet</b><span class="chip ok">READY</span></div>' +
+        '<div class="small muted">Payer format: Insurer SYN-07 JSON · 6 attachments · clinical summary needs a quick human read.</div>' +
+        '<div class="row"><button class="btn sm">Download packet</button><button class="btn sm">Download gap report</button></div>' +
+        (S.dev ? '<pre class="code">' + esc('{\n  "assembly_id": "pa-41d0…",\n  "claim_id": "SUV-261028-01",\n  "gap_run_id": "run-3c1e…",\n  "target_format": "payer_json",\n  "status": "ASSEMBLED"\n}') + '</pre>' : '') + '</div>' +
+        '<div class="row"><button class="btn pri" data-a="step" data-v="4">Next: integrity check →</button></div>';
+    }
+  }
+  if (s.step === 4) {
+    body = h('Integrity check', 'Runs on the claim packet') +
+      '<div class="note plum">Visible to admins only. Doctors and staff only see that a claim is on hold.</div>';
+    if (!s.gapsRun) body += need(3, 'Build the claim packet first.');
+    else if (!s.integrityRun) body += '<div class="muted">Looks for duplicate or resubmitted claims, pre-existing conditions, edited documents, invalid IDs and unusual bills.</div><div class="row"><button class="btn acc" data-a="runIntegrity">Run integrity check</button></div>';
+    else {
+      body += '<div class="row" style="gap:6px"><span class="pillc ok">5 passed</span><span class="pillc amb">1 to check</span><span class="pillc grey">0 failed</span></div>' +
+        INTEGRITY.map(it => '<div class="row" style="border:1px solid var(--line);border-radius:8px;padding:9px 12px;align-items:flex-start;gap:6px 12px"><span class="chip ' + FLAG[it[1]][0] + '">' + FLAG[it[1]][1] + '</span><div style="display:grid;gap:2px;flex:1 1 320px;min-width:0"><b style="font-size:14.5px">' + it[2] + '</b><span class="small muted">' + esc(it[3]) + '</span></div>' + (S.dev ? '<span class="mono small muted">' + it[0] + '</span>' : '') + '</div>').join('') +
+        '<div class="row"><button class="btn pri" data-a="step" data-v="5">Next: approve & submit →</button></div>';
+    }
+  }
+  if (s.step === 5) {
+    const dot = (c, m, t) => '<div class="row" style="gap:8px;font-size:14px;flex-wrap:nowrap"><span class="chip ' + c + '" style="border-radius:50%;width:20px;height:20px;padding:0;display:inline-grid;place-items:center">' + m + '</span><span>' + t + '</span></div>';
+    const gapNames = GAPS.filter(g => g[1] === 'amb' && !(g[5] && S.tasks[g[5]])).map(g => g[2].toLowerCase());
+    body = h('Approve and submit', 'A person signs off every claim before it goes to the payer');
+    if (!s.integrityRun) body += need(4, 'Run the integrity check first.');
+    else {
+      const D = [['APPROVED','Approve'],['FALSE_POSITIVE','Approve · the integrity warning is a false alarm'],['REJECTED','Send back to the hospital']];
+      body += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px">' +
+        '<div style="border:1px solid var(--line);border-radius:8px;padding:12px;display:grid;gap:8px;align-content:start"><b style="font:700 14.5px var(--f-display)">Before you approve</b>' +
+          dot('ok','✓','6 of 6 documents read') + dot(gapNames.length ? 'amb' : 'ok', gapNames.length ? '!' : '✓', gapNames.length ? gapNames.length + ' to fix: ' + gapNames.join(', ') : 'No gaps left to fix') + dot('ok','✓','Nothing blocks this claim') + dot('amb','!','Integrity: 1 warning (document tampering)') + '</div>' +
+        '<div style="border:1px solid var(--line);border-radius:8px;padding:12px;display:grid;gap:10px;align-content:start">';
+      if (!s.decision) {
+        body += '<div class="field">Decision<div style="display:grid;gap:6px">' + D.map(d => '<label class="row" style="gap:8px;color:var(--fg);font-size:14px;flex-wrap:nowrap"><input type="radio" name="dec" value="' + d[0] + '"' + (s.pick === d[0] ? ' checked' : '') + '>' + d[1] + '</label>').join('') + '</div></div>' +
+          '<label class="field">Reason (required when you override a warning or send the claim back)<textarea id="rationale" rows="3" placeholder="e.g. Image was rotated by the records team; histopathology to follow, insurer accepts it after discharge.">' + esc(s.note || '') + '</textarea></label>' +
+          (s.err ? '<div class="err" role="alert"><span>' + esc(s.err) + '</span></div>' : '') +
+          '<button class="btn pri" data-a="decide">Confirm decision</button>';
+      } else if (s.decision === 'REJECTED') {
+        body += '<div class="pillc red" style="border-radius:6px;padding:9px 11px;font-size:14px">Sent back by ' + esc(S.user.name) + '. A gap report was shared with Dr. S. Menon.</div>' +
+          '<div class="small muted">Reason: ' + esc(s.note) + '</div><button class="btn" data-a="undoDecision">Reopen review</button>';
+      } else {
+        body += '<div class="pillc ok" style="border-radius:6px;padding:9px 11px;font-size:14px">Approved by ' + esc(S.user.name) + (s.decision === 'FALSE_POSITIVE' ? ' · integrity warning marked as a false alarm' : '') + '.</div>' +
+          (s.note ? '<div class="small muted">Reason: ' + esc(s.note) + '</div>' : '') +
+          (!s.submitted ? '<button class="btn acc" data-a="submit">Submit to TPA SYN-3</button>'
+            : '<div class="flow">' + [['QUEUED','Queued'],['DISPATCHING','Sending'],['SUBMITTED','Received by TPA SYN-3']].map((x,i) => '<div class="' + (i < 2 ? 'on' : 'cur') + '"><b style="font-size:13px">' + x[1] + '</b>' + (S.dev ? '<span class="mono small muted">' + x[0] + '</span>' : '') + '</div>').join('') + '</div>' +
+              '<div class="small muted">Payer reference SYN3-CLM-88214. If the payer rejects it, it comes back here with their reasons.</div>');
+      }
+      body += '</div></div>';
+    }
+  }
+
+  const API = [
+    [['POST','/api/v1/ingestion/upload','READY','multipart files[] + user_id, classification_type · Idempotency-Key header · 201 with batch_id'],['GET','/api/v1/ingestion/batches/{batch_id}','READY','Batch status and per-file results'],['POST','/api/v1/claims/intake/extract','READY','Pre-fill claim fields from the documents'],['POST','/api/v1/claims/intake','READY','Create the claim intake record']],
+    [['GET','/api/v1/ingestion/files/{file_id}','READY','File status, pages, scanned pages'],['POST','/api/v1/ingestion/batches/{batch_id}/retry','READY','Retry files that failed']],
+    [['POST','/api/v1/rag/ask','READY','Answer with sources · stream=true returns SSE, false returns JSON'],['POST','/api/v1/rag/search','READY','Ranked passages only'],['POST','/api/v1/evaluation/evaluate','READY','Answer check: grounded, relevance, safety']],
+    [['POST','/api/v1/claims/gaps/evaluate','READY','facts, service_date, payer_id, chunk_references, billing · Idempotency-Key'],['GET','/api/v1/claims/gaps/runs/{run_id}','READY','Findings with source pages'],['GET','/api/v1/claims/gaps/runs/{run_id}/report','READY','Gap report download link'],['POST','/api/v1/claims/packets/assemble','READY','Build the packet from gap_run_id + subscriber, provider, billing'],['GET','/api/v1/claims/packets/assemblies/{assembly_id}/download','READY','Packet download link'],['GET','/api/v1/claims/registry/diseases','READY','Diagnosis lookup']],
+    [['POST','/api/v1/integrity/check','READY','{ packet_id } · 202 with run_id'],['GET','/api/v1/integrity/runs/{run_id}','READY','Poll: checks[] with check_type, result_flag, summary'],['GET','/api/v1/integrity/checks/{packet_id}','READY','Latest run for a packet']],
+    [['POST','/api/v1/reviews','READY','{ packet_id } opens the review task'],['GET','/api/v1/reviews/{task_id}','READY','Task detail incl. version'],['POST','/api/v1/reviews/{task_id}/adjudicate','READY','version, decision, rationale, false_positive_checks · stale version → 409'],['POST','/api/v1/claims/submissions','READY','{ packet_id } · 202 · QUEUED → DISPATCHING → SUBMITTED'],['GET','/api/v1/claims/submissions/{submission_id}','READY','Status and payer attempts'],['GET','/api/v1/claims/gap-reports/{gap_report_id}','READY','Report sent back to the hospital']],
+  ];
+  const SNIP = [
+    'POST /api/v1/ingestion/upload\nIdempotency-Key: <uuid>\nContent-Type: multipart/form-data\n  files=@claim_docs.zip\n  user_id=SYN-P-1042',
+    'POST /api/v1/ingestion/batches/{batch_id}/retry',
+    'POST /api/v1/rag/ask\n{ "query": "' + QS[s.q].text + '",\n  "filters": { "user_id": "SYN-P-1042" },\n  "stream": false }',
+    'POST /api/v1/claims/packets/assemble\n{ "encounter_id": "SUV-261028-01",\n  "service_date": "2026-10-09",\n  "payer_id": "SYN-07",\n  "gap_run_id": "run-3c1e…",\n  "subscriber": { … }, "provider": { … } }',
+    'POST /api/v1/integrity/check\n{ "packet_id": "pa-41d0…" }',
+    'POST /api/v1/reviews/{task_id}/adjudicate\n{ "version": 1,\n  "decision": "FALSE_POSITIVE",\n  "rationale": "…",\n  "false_positive_checks": ["TAMPERING"] }\n\nPOST /api/v1/claims/submissions\n{ "packet_id": "pa-41d0…" }',
+  ];
+  return header + stages + '<div class="cols"><section class="card main pad stack" aria-live="polite">' + body + '</section><aside class="rail">' + apiRail(STG[s.step][0].toLowerCase(), API[s.step], SNIP[s.step]) + activityRail() + '</aside></div>';
+}
+
+/* ================= ADMIN · USERS ================= */
+function viewUsers(){
+  const rows = Object.entries(USERS).map(([e,u]) => '<tr><td><b style="font-weight:600">' + esc(u.name) + '</b><div class="mono small muted">' + e + '</div></td><td>' + esc(u.title) + '</td><td><span class="chip ' + (u.role === 'admin' ? 'amb' : 'teal') + '">' + (u.role === 'admin' ? 'ADMIN' : 'DOCTOR / STAFF') + '</span></td><td class="small muted">tenant SYN-HOSP-01</td></tr>').join('');
+  const M = [['Upload claim files and retry failed ones','✓','Medical records staff'],['Find patient documents and read their text','✓','✓'],['Ask questions about a patient','✓','✓ own patients'],['See claim amounts and payer details','✓','–'],['See gap check results','✓','Only items sent to them'],['See integrity findings','✓','–'],['Approve and submit claims','✓','–'],['Complete document requests and payer queries','View','✓'],['Manage users and roles','✓','–']];
+  return '<div class="cols"><div class="main stack"><h2 style="font-size:20px">Users & access</h2>' +
+    '<div class="tblw"><table style="min-width:600px"><thead><tr><th>USER</th><th>TITLE</th><th>ROLE</th><th>HOSPITAL</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+    '<h3 style="font-size:16px">What each role can do</h3>' +
+    '<div class="tblw"><table style="min-width:560px"><thead><tr><th>ACTION</th><th>ADMIN</th><th>DOCTOR / STAFF</th></tr></thead><tbody>' +
+    M.map(m => '<tr><td>' + m[0] + '</td><td>' + m[1] + '</td><td>' + m[2] + '</td></tr>').join('') + '</tbody></table></div></div>' +
+    (S.dev ? '<aside class="rail">' + apiRail('users', [['POST','/api/v1/auth/login','NEEDED','Session cookie carrying the user’s role'],['GET','/api/v1/users','NEEDED','Users of this hospital with role'],['PATCH','/api/v1/users/{id}','NEEDED','Change role or disable']]) +
+      '<div class="note small">Enforce roles in the API, not only in the UI. Search and answers already filter by hospital and <code>user_id</code>; add role checks on top.</div></aside>' : '') + '</div>';
+}
+
+/* ================= DOCTOR · PROCESSED FILES ================= */
+function fileMatches(f, q){
+  if (!q) return { ok:true, hits:[] };
+  const ql = q.toLowerCase();
+  const p = PATIENTS[f.pt];
+  const meta = [f.name, f.pt, f.cls, p.proc, p.dx].join(' ').toLowerCase();
+  const hits = f.txt.filter(c => (c[1] + ' ' + c[2]).toLowerCase().includes(ql));
+  return { ok: meta.includes(ql) || hits.length > 0, hits };
+}
+function hl(text, q){
+  if (!q) return esc(text);
+  const i = text.toLowerCase().indexOf(q.toLowerCase());
+  if (i < 0) return esc(text);
+  return esc(text.slice(0,i)) + '<mark>' + esc(text.slice(i, i + q.length)) + '</mark>' + esc(text.slice(i + q.length));
+}
+function filteredFiles(){
+  const f = S.fq;
+  return FILES.map(x => Object.assign({ m: fileMatches(x, f.q.trim()) }, x))
+    .filter(x => x.m.ok && (f.cls === 'all' || x.cls === f.cls) && (f.status === 'all' || x.status === f.status) && (f.pt === 'all' || x.pt === f.pt));
+}
+function fileResults(){
+  const list = filteredFiles(), q = S.fq.q.trim();
+  if (!list.length) return '<div style="border:1px dashed var(--line);border-radius:8px;padding:16px" class="muted">No documents match. Clear a filter or try a shorter search.</div>';
+  return '<div class="small muted">Showing ' + list.length + ' of ' + FILES.length + ' documents</div><div class="tblw"><table style="min-width:720px"><thead><tr><th>DOCUMENT</th><th>PATIENT</th><th>TYPE</th><th>STATUS</th><th class="num">PAGES</th><th>UPLOADED</th></tr></thead><tbody>' +
+    list.map(x => '<tr class="click' + (S.fq.sel === x.id ? ' sel' : '') + '" data-a="pickFile" data-v="' + x.id + '" tabindex="0"><td><b style="font-weight:600;overflow-wrap:anywhere">' + hl(x.name, q) + '</b>' +
+      (x.m.hits.length ? '<div class="small muted" style="margin-top:2px">Page ' + x.m.hits[0][0] + ' · ' + esc(x.m.hits[0][1]) + ': “' + hl(x.m.hits[0][2], q) + '”</div>' : '') + '</td>' +
+      '<td class="mono" style="font-size:12.5px">' + hl(x.pt, q) + '</td><td><span class="chip teal">' + esc(docType(x.cls)).toUpperCase() + '</span></td><td>' + statusChip(x.status) + '</td><td class="num small">' + x.pages + (x.ocr ? ' · scanned' : '') + '</td><td class="small muted" style="white-space:nowrap">' + x.up + '</td></tr>').join('') +
+    '</tbody></table></div>';
+}
+function fileDetail(){
+  const x = FILES.find(f => f.id === S.fq.sel);
+  if (!x) return '<section class="card pad stack"><div class="lbl">Document</div><div class="muted small">Select a document to see its details and the text read from it.</div></section>';
+  const p = PATIENTS[x.pt], q = S.fq.q.trim();
+  return '<section class="card pad stack"><div class="between"><span class="lbl">Document</span>' + statusChip(x.status) + '</div>' +
+    '<div><b style="font:700 16px var(--f-display);overflow-wrap:anywhere">' + esc(x.name) + '</b><div class="small muted">' + x.pt + ' · ' + p.sex + ' · ' + p.age + ' · ' + esc(p.proc) + '</div></div>' +
+    (x.detail ? '<div class="small" style="color:' + (x.status === 'EXTRACTION_FAILED' ? 'var(--red)' : 'var(--muted)') + '">' + esc(x.detail) + '</div>' : '') +
+    '<div style="display:grid;gap:4px">' + [['Type', docType(x.cls)],['Pages', x.pages],['Scanned image', x.ocr ? 'Yes' : 'No'],['Uploaded', x.up + ' by ' + x.by],['Claim stage', p.stage]].map(k => '<div class="kv"><span>' + k[0] + '</span><b style="font-weight:600">' + esc(k[1]) + '</b></div>').join('') + '</div>' +
+    (x.txt.length ? '<div class="lbl">Text from this document</div>' + x.txt.map(c => '<div class="snip"><div class="small muted">Page ' + c[0] + ' · ' + esc(c[1]) + '</div>' + hl(c[2], q) + '</div>').join('') : '') +
+    (S.dev ? '<div class="mono small muted">file_id ' + x.id + ' · ' + x.chunks + ' chunks · status ' + x.status + '</div>' : '') +
+    (x.status === 'EXTRACTION_FAILED' ? '<div class="row"><button class="btn sm warn" data-a="reqRescan" data-v="' + x.id + '">Ask records to re-scan</button></div>' : '') +
+    (x.status === 'INDEXED' ? '<div class="row"><button class="btn sm pri" data-a="askAbout" data-v="' + x.pt + '">Ask about this patient →</button></div>' : '') +
+    '</section>';
+}
+function viewFiles(){
+  const f = S.fq;
+  const idx = FILES.filter(x => x.status === 'INDEXED');
+  const tiles = [['documents', FILES.length],['ready to search', idx.length],['couldn’t be read', FILES.filter(x => x.status === 'EXTRACTION_FAILED').length],['patients', Object.keys(PATIENTS).length]];
+  const opt = (v, cur, label) => '<option value="' + v + '"' + (v === cur ? ' selected' : '') + '>' + label + '</option>';
+  return '<div class="stack"><div class="between"><h2 style="font-size:20px">Patient documents</h2><span class="small muted">Your patients only</span></div>' +
+    '<div class="tiles">' + tiles.map(t => '<div class="tile"><div class="lbl">' + t[0] + '</div><div class="v">' + t[1] + '</div></div>').join('') + '</div>' +
+    '<div class="cols"><div class="main stack">' +
+      '<div class="card pad" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">' +
+        '<label class="field" style="grid-column:1/-1">Search documents by name, patient or anything written in them<input id="fSearch" type="search" placeholder="e.g. signature, troponin, SYN-P-1103, cataract" value="' + esc(f.q) + '"></label>' +
+        '<label class="field">Patient<select id="fPt">' + opt('all', f.pt, 'All patients') + Object.keys(PATIENTS).map(k => opt(k, f.pt, k + ' · ' + esc(PATIENTS[k].proc))).join('') + '</select></label>' +
+        '<label class="field">Document type<select id="fCls">' + ['all','admission','lab','operative','discharge'].map(c => opt(c, f.cls, c === 'all' ? 'All types' : docType(c))).join('') + '</select></label>' +
+        '<label class="field">Status<select id="fStatus">' + [['all','All statuses'],['INDEXED','Ready'],['EXTRACTION_FAILED','Couldn’t read'],['DUPLICATE','Duplicate copy']].map(c => opt(c[0], f.status, c[1])).join('') + '</select></label>' +
+        '<div class="row" style="gap:6px;align-self:end"><span class="small muted">Try:</span>' + ['signature','histopathology','troponin'].map(t => '<button class="qbtn" style="min-height:36px;padding:4px 10px;font-size:13px" data-a="quickSearch" data-v="' + t + '">' + t + '</button>').join('') + '</div>' +
+      '</div><div id="fileResults" class="stack" style="gap:8px">' + fileResults() + '</div></div>' +
+    '<aside class="rail"><div id="fileDetail">' + fileDetail() + '</div>' +
+      apiRail('documents', [['GET','/api/v1/ingestion/files/{file_id}','READY','Document status, pages, scanned'],['POST','/api/v1/rag/search','READY','Search inside documents · filters.user_id, file_ids, classification_types'],['POST','/api/v1/ingestion/upload','READY','Re-upload a re-scanned file'],['GET','/api/v1/files?patient=&type=&status=','NEEDED','Document list for this table'],['GET','/api/v1/files/{file_id}/text','NEEDED','Text per page for the detail panel']]) +
+    '</aside></div></div>';
+}
+
+/* ================= DOCTOR · ASK ================= */
+const ASKQ = {
+  'SYN-P-1042': [0,1,2],
+  'SYN-P-1077': [{ text:'What did the angiography show?', found:true, segs:[['Proximal LAD had a 95% thrombotic occlusion, treated with one drug-eluting stent (3.0 x 28 mm) with TIMI III flow afterwards ',0],['[1]',1],['.',0]], cites:[[1,'angiography_report.pdf',1,95,0]] },
+                  { text:'What was the troponin level?', found:true, segs:[['hs-Troponin I was 4,820 ng/L against a reference below 26 ng/L ',0],['[1]',1],['.',0]], cites:[[1,'troponin_lab.pdf',1,97,0]] }],
+  'SYN-P-1103': [{ text:'What anaesthesia was used for the LSCS?', found:true, segs:[['Elective repeat LSCS was done under spinal anaesthesia ',0],['[1]',1],['.',0]], cites:[[1,'lscs_operation_note.pdf',1,93,0]] }],
+  'SYN-P-1120': [{ text:'What IOL power was planned?', found:true, segs:[['The right eye IOL power was +21.5 D (SRK/T), axial length 23.41 mm ',0],['[1]',1],['.',0]], cites:[[1,'a_scan_biometry.pdf',1,96,0]] }],
+};
+const askList = (pt) => ASKQ[pt].map(q => typeof q === 'number' ? QS[q] : q);
+function freeSearch(pt, q){
+  const words = q.toLowerCase().split(/\W+/).filter(w => w.length > 3);
+  const out = [];
+  FILES.filter(f => f.pt === pt).forEach(f => f.txt.forEach(c => {
+    const t = (c[1] + ' ' + c[2]).toLowerCase();
+    const score = words.filter(w => t.includes(w)).length;
+    if (score) out.push({ f:f.name, p:c[0], h:c[1], t:c[2], score });
+  }));
+  return out.sort((a,b) => b.score - a.score).slice(0, 5);
+}
+function viewAsk(){
+  const a = S.ask, qs = askList(a.pt);
+  let res = '';
+  if (a.qi >= 0) res = answerBlock(qs[a.qi]);
+  else if (a.freeRes) res = (S.dev ? '<div class="note small">Demo: shows the matching passages. Wire this form to <code>POST /api/v1/rag/ask</code> to get the written answer.</div>' : '') +
+    (a.freeRes.length ? '<div class="lbl">Related passages</div>' + a.freeRes.map((r,i) => '<div class="snip"><div class="small muted">[' + (i+1) + '] ' + esc(r.f) + ' · page ' + r.p + ' · ' + esc(r.h) + '</div>' + esc(r.t) + '</div>').join('') : '<div style="background:var(--tint);border:1px solid var(--line);border-radius:8px;padding:14px 16px">The uploaded documents do not contain this information.</div>');
+  const p = PATIENTS[a.pt];
+  return '<div class="cols"><section class="card main pad stack"><div class="between"><h2 style="font-size:18px">Ask about a patient</h2></div>' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px"><label class="field">Patient<select id="aPt">' + Object.keys(PATIENTS).map(k => '<option value="' + k + '"' + (k === a.pt ? ' selected' : '') + '>' + k + ' · ' + esc(PATIENTS[k].proc) + '</option>').join('') + '</select></label></div>' +
+    '<div class="small muted">' + esc(p.dx) + ' · ' + esc(p.doctor) + '. Answers use only this patient’s documents and show where each fact came from.</div>' +
+    '<div class="row" style="gap:6px">' + qs.map((q,i) => '<button class="qbtn" data-a="askQ" data-v="' + i + '" aria-pressed="' + (a.qi === i) + '">' + esc(q.text) + '</button>').join('') + '</div>' +
+    '<form id="freeForm" class="row" style="flex-wrap:nowrap"><input id="aFree" style="flex:1;min-width:0;border:1px solid var(--line);border-radius:6px;padding:8px 10px;min-height:44px;background:var(--surface)" placeholder="Type a question, e.g. Was the histopathology report received?" value="' + esc(a.free) + '"><button class="btn pri" type="submit">Ask</button></form>' +
+    res + '</section><aside class="rail">' +
+    apiRail('ask', [['POST','/api/v1/rag/ask','READY','Answer with sources · filters.user_id = patient · stream=true for SSE'],['POST','/api/v1/rag/search','READY','Ranked passages only'],['POST','/api/v1/evaluation/evaluate','READY','Answer check: grounded, relevance, safety']],
+      'POST /api/v1/rag/ask\n{ "query": "…",\n  "filters": { "user_id": "' + a.pt + '" },\n  "stream": false }') + activityRail() + '</aside></div>';
+}
+
+/* ================= DOCTOR · PATIENTS ================= */
+const TL = {
+  'SYN-P-1042': [['04 Oct','OPD consultation','Symptomatic cholelithiasis, surgery advised','opd_consultation.pdf'],['05 Oct','USG abdomen','Multiple calculi, largest 14 mm','usg_abdomen.pdf'],['08 Oct','Admitted','Planned admission','opd_consultation.pdf'],['09 Oct','Surgery','Laparoscopic cholecystectomy under GA','operation_note.pdf'],['11 Oct','Discharged','Uneventful recovery; histopathology awaited','discharge_summary.pdf']],
+  'SYN-P-1077': [['26 Oct','Admitted via ER','Chest pain 2 h; STEMI on ECG','admission_note.pdf'],['26 Oct','Troponin','hs-TnI 4,820 ng/L','troponin_lab.pdf'],['27 Oct','Cath lab','PTCA, one DES to proximal LAD','angiography_report.pdf']],
+  'SYN-P-1103': [['24 Oct','Admitted','38 weeks, previous LSCS','antenatal_card.jpg'],['24 Oct','Surgery','Elective repeat LSCS, spinal','lscs_operation_note.pdf'],['25 Oct','Lab','Hb 10.8 g/dL POD 1','cbc_report.pdf'],['27 Oct','Discharged','Mother and baby stable','discharge_summary.pdf']],
+  'SYN-P-1120': [['20 Oct','Biometry','IOL +21.5 D','a_scan_biometry.pdf'],['20 Oct','Surgery','Phaco + foldable IOL, right eye','op_note.pdf'],['20 Oct','Consent','Scan couldn’t be read, re-scan needed','consent_form.jpg']],
+};
+function viewPatients(){
+  const p = PATIENTS[S.pt], files = FILES.filter(f => f.pt === S.pt);
+  return '<div class="cols"><section class="card main pad stack"><div class="between"><h2 style="font-size:18px">Patient summary</h2><label class="field" style="min-width:220px">Patient<select id="pPick">' + Object.keys(PATIENTS).map(k => '<option value="' + k + '"' + (k === S.pt ? ' selected' : '') + '>' + k + ' · ' + esc(PATIENTS[k].proc) + '</option>').join('') + '</select></label></div>' +
+    '<div><div class="mono small" style="color:var(--accent)">' + S.pt + ' · ' + p.sex + ' · ' + p.age + '</div><h3 style="font-size:20px;margin:2px 0">' + esc(p.proc) + '</h3><div class="row muted small" style="gap:4px 16px"><span>' + esc(p.dx) + '</span><span>Treating doctor <b style="color:var(--fg)">' + esc(p.doctor) + '</b></span><span>Admitted ' + p.adm + ' · Discharged ' + p.dis + '</span><span>Claim ' + stageChip(p.stage) + '</span></div></div>' +
+    '<div class="lbl">Timeline · from the patient’s documents</div><ol class="tl">' + TL[S.pt].map(t => '<li><time>' + t[0] + '</time><span class="dot"></span><div><b style="font-weight:600">' + esc(t[1]) + '</b> · ' + esc(t[2]) + '<div class="small" style="color:var(--teal)">Source: ' + esc(t[3]) + '</div></div></li>').join('') + '</ol>' +
+    (S.dev ? '<div class="note small">API · NEEDED: <code>GET /api/v1/patients/{user_id}/timeline</code> (dates, events, codes, each with its source page). <code>POST /api/v1/claims/intake/extract</code> already pulls claim fields and can seed it.</div>' : '') +
+    '</section><aside class="rail"><section class="card pad stack"><div class="lbl">Documents · ' + files.length + '</div>' +
+    files.map(f => '<div class="between" style="border:1px solid var(--line);border-radius:6px;padding:7px 9px;align-items:center"><button class="link" style="text-align:left;overflow-wrap:anywhere" data-a="openFile" data-v="' + f.id + '">' + esc(f.name) + '</button>' + statusChip(f.status) + '</div>').join('') +
+    '<div class="small muted">Claim amounts, payer details and integrity findings are not shown to doctors and staff.</div></section>' +
+    apiRail('patient', [['GET','/api/v1/patients/{user_id}','NEEDED','Patient header: sex, age, diagnosis, doctor, dates'],['GET','/api/v1/patients/{user_id}/timeline','NEEDED','Timeline events with sources'],['GET','/api/v1/files?patient=','NEEDED','Documents list']]) + '</aside></div>';
+}
+
+/* ================= DOCTOR · TO-DOS ================= */
+const TASKS = [
+  ['t1','Signature needed','amb','Sign the anaesthesia record','SYN-P-1042 · SUV-261028-01','The anaesthetist signature is blank. The insurer returns surgical claims without it.','anaesthesia_record.jpg · page 1','Mark as signed'],
+  ['t2','Insurer question','teal','Explain the 2-night stay','SYN-P-1042 · TPA SYN-3','The TPA asks why a day-care lap cholecystectomy needed 2 nights. A suggested reply based on the discharge summary is below.','discharge_summary.pdf · page 1','Send reply'],
+  ['t3','Signature needed','amb','Sign the discharge summary','SYN-P-1103 · SUV-261026-02','The insurer needs a signed discharge summary with the final diagnosis and ICD-10 code before the claim can be sent.','discharge_summary.pdf · page 2','Mark as signed'],
+  ['t4','Please confirm','teal','Confirm diagnosis and procedure','SYN-P-1077 · PM-JAY','The pre-auth request lists I21.0 and PTCA with 1 DES. Please confirm before it is sent.','angiography_report.pdf · page 1','Confirm'],
+  ['t5','Re-scan needed','red','Consent form couldn’t be read','SYN-P-1120 · SUV-261025-05','The phone photo was too blurry to read. Re-scan the consent form and upload it again.','consent_form.jpg','Mark as re-scanned'],
+];
+function viewTasks(){
+  const open = TASKS.filter(t => !S.tasks[t[0]]).length;
+  return '<div class="cols"><section class="card main pad stack"><div class="between"><h2 style="font-size:18px">My to-dos</h2><span class="small muted">Requests from the claims team and insurers</span></div>' +
+    '<div class="row" style="gap:6px"><span class="pillc amb">' + open + ' to do</span><span class="pillc ok">' + (TASKS.length - open) + ' done</span></div>' +
+    TASKS.map(t => { const done = S.tasks[t[0]];
+      return '<div class="task' + (done ? ' doneT' : '') + '"><div class="between"><div class="row" style="gap:8px"><span class="chip ' + (done ? 'ok' : t[2]) + '">' + (done ? 'DONE' : t[1].toUpperCase()) + '</span><b>' + esc(t[3]) + '</b></div><span class="mono small muted">' + esc(t[4]) + '</span></div>' +
+        '<div class="small muted">' + esc(t[5]) + '</div><div class="small" style="color:var(--teal)">See: ' + esc(t[6]) + '</div>' +
+        (t[0] === 't2' && !done ? '<div class="snip">The patient had post-operative nausea on day 1 and was kept for observation; discharged on day 2 after tolerating oral feeds <span class="cite">[discharge_summary.pdf, page 1]</span>.</div>' : '') +
+        '<div class="row">' + (done ? '<span class="small" style="color:var(--ok)">Done by ' + esc(S.user.name) + ' at ' + done + '</span>' : '<button class="btn sm pri" data-a="task" data-v="' + t[0] + '">' + t[7] + '</button><button class="btn sm">Open document</button>') + '</div></div>'; }).join('') +
+    '</section><aside class="rail">' + apiRail('to-dos', [['GET','/api/v1/claims/gap-reports/{gap_report_id}','READY','Gap report sent back to this user'],['POST','/api/v1/claims/gap-reports/{gap_report_id}/links','READY','Short-lived link to open the report'],['GET','/api/v1/claims/gaps/runs/{run_id}','READY','Gap findings with source pages'],['GET','/api/v1/tasks?assignee=me','NEEDED','To-do list: owner, status, due'],['POST','/api/v1/tasks/{task_id}/resolve','NEEDED','Mark done with a note'],['POST','/api/v1/rag/ask','READY','Draft an insurer reply from the documents']]) + activityRail() + '</aside></div>';
+}
+
+function doLogin(){
+  const emailEl = $('#lEmail'), pwEl = $('#lPw'); if (!emailEl || !pwEl) return;
+  const email = emailEl.value.trim().toLowerCase(), pw = pwEl.value, u = USERS[email];
+  S.lEmail = email; S.lPw = pw;
+  if (!email || !pw) { S.loginErr = 'Enter your work email and password to continue.'; render(); return; }
+  if (!u || u.pw !== pw) { S.loginErr = 'That email and password don’t match a demo account. Tap one of the demo accounts below to fill it in.'; render(); return; }
+  if (u.role !== S.loginRole) { S.loginErr = email + ' is a ' + (u.role === 'admin' ? 'Admin' : 'Doctor / Staff') + ' account. Pick that role above, or use a matching account.'; render(); return; }
+  S.loginErr = ''; S.lEmail = ''; S.lPw = 'demo1234'; login(email); render(); window.scrollTo(0,0);
+}
+/* ================= render + events ================= */
+function render(){
+  if (!S.user) { $('#app').innerHTML = viewLogin(); return; }
+  const V = { worklist:viewWorklist, desk:viewDesk, users:viewUsers, files:viewFiles, ask:viewAsk, patients:viewPatients, tasks:viewTasks };
+  $('#app').innerHTML = shell((V[S.view] || V.files)());
+}
+const A = {
+  loginRole: (v) => { S.loginRole = v; S.loginErr = ''; S.lEmail = ''; S.lPw = 'demo1234'; render(); },
+  doLogin: () => doLogin(),
+  fillDemo: (v) => { S.loginRole = USERS[v].role; S.lEmail = v; S.lPw = 'demo1234'; S.loginErr = ''; render(); const p = $('#lPw'); if (p) p.focus(); },
+  togglePw: () => { const p = $('#lPw'), b = $('.lfield .show'); const show = p.type === 'password'; p.type = show ? 'text' : 'password'; b.textContent = show ? 'Hide' : 'Show'; b.setAttribute('aria-label', show ? 'Hide password' : 'Show password'); },
+  logout: () => { log('signed out'); S.user = null; try { sessionStorage.removeItem('skyclaims.user'); } catch(e) {} render(); },
+  nav: (v) => { S.view = v; render(); window.scrollTo(0,0); },
+  step: (v) => { S.desk.step = +v; render(); },
+  upload: () => { S.desk.uploaded = true; log('uploaded batch: 7 ingested, 1 duplicate, 1 rejected'); render(); },
+  retry: () => { S.desk.retried = true; log('anaesthesia_record.jpg read on the second try'); render(); },
+  deskQ: (v) => { S.desk.q = +v; S.desk.asked = true; log('asked: ' + QS[+v].text); render(); },
+  runGaps: () => { S.desk.gapsRun = true; log('ran the gap check: 3 to fix, claim packet built'); render(); },
+  runIntegrity: () => { S.desk.integrityRun = true; log('ran the integrity check: 5 passed, 1 to check'); render(); },
+  decide: () => {
+    const d = S.desk, note = ($('#rationale') || {}).value || '';
+    d.note = note.trim();
+    if (!d.pick) { d.err = 'Choose a decision.'; render(); return; }
+    if (d.pick !== 'APPROVED' && d.note.length < 10) { d.err = 'Add a short reason (at least 10 characters).'; render(); return; }
+    d.err = ''; d.decision = d.pick;
+    log(d.decision === 'REJECTED' ? 'sent the claim back to the hospital' : 'approved the claim' + (d.decision === 'FALSE_POSITIVE' ? ' (integrity warning marked false alarm)' : ''));
+    render();
+  },
+  undoDecision: () => { Object.assign(S.desk, { decision:null, pick:null, err:'' }); render(); },
+  submit: () => { S.desk.submitted = true; log('submitted the claim to TPA SYN-3'); render(); },
+  resetDesk: () => { Object.assign(S.desk, { step:0, uploaded:false, retried:false, q:0, asked:false, gapsRun:false, integrityRun:false, decision:null, pick:null, note:'', err:'', submitted:false }); render(); },
+  toggleDev: () => { S.dev = !S.dev; try { localStorage.setItem('skyclaims.dev', S.dev ? '1' : '0'); } catch(e) {} render(); },
+  pickFile: (v) => { S.fq.sel = v; $('#fileResults').innerHTML = fileResults(); $('#fileDetail').innerHTML = fileDetail(); },
+  quickSearch: (v) => { S.fq.q = v; S.fq.sel = null; render(); },
+  openFile: (v) => { S.fq = { q:'', cls:'all', status:'all', pt:'all', sel:v }; S.view = 'files'; render(); },
+  askAbout: (v) => { S.ask = { pt:v, qi:-1, free:'', freeRes:null }; S.view = 'ask'; render(); },
+  askQ: (v) => { S.ask.qi = +v; S.ask.freeRes = null; log('asked about ' + S.ask.pt + ': ' + askList(S.ask.pt)[+v].text); render(); },
+  reqRescan: (v) => { log('requested a re-scan of ' + FILES.find(f => f.id === v).name); render(); },
+  task: (v) => { S.tasks[v] = now(); log('completed: ' + TASKS.find(t => t[0] === v)[3]); render(); },
+};
+document.addEventListener('click', (e) => { const el = e.target.closest('[data-a]'); if (el && A[el.dataset.a]) { e.preventDefault(); A[el.dataset.a](el.dataset.v); } });
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && (e.target.id === 'lEmail' || e.target.id === 'lPw')) { e.preventDefault(); doLogin(); return; } if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('tr[data-a]')) { e.preventDefault(); A[e.target.dataset.a](e.target.dataset.v); } });
+document.addEventListener('submit', (e) => {
+  e.preventDefault();
+  if (e.target.id === 'loginForm') doLogin();
+  if (e.target.id === 'freeForm') {
+    const q = $('#aFree').value.trim(); if (!q) return;
+    S.ask.free = q; S.ask.qi = -1; S.ask.freeRes = freeSearch(S.ask.pt, q); log('searched ' + S.ask.pt + ': ' + q); render();
+  }
+});
+document.addEventListener('input', (e) => {
+  if (e.target.id === 'fSearch') { S.fq.q = e.target.value; $('#fileResults').innerHTML = fileResults(); }
+  if (e.target.id === 'rationale') S.desk.note = e.target.value;
+});
+document.addEventListener('change', (e) => {
+  const id = e.target.id;
+  if (e.target.name === 'dec') S.desk.pick = e.target.value;
+  if (id === 'fPt' || id === 'fCls' || id === 'fStatus') { S.fq[{ fPt:'pt', fCls:'cls', fStatus:'status' }[id]] = e.target.value; $('#fileResults').innerHTML = fileResults(); }
+  if (id === 'aPt') { S.ask = { pt:e.target.value, qi:-1, free:'', freeRes:null }; render(); }
+  if (id === 'pPick') { S.pt = e.target.value; render(); }
+});
+render();
+})();
+</script>
+
+</html>
