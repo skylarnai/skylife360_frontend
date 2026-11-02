@@ -28,7 +28,7 @@
 
 | ID | Screen | Role | Route | Doc | API readiness |
 |---|---|---|---|---|---|
-| S00 | Foundation: theme, app shell, shared components, API client, auth guard | all | — | [00 - Foundation/foundation_S00.md](00%20-%20Foundation/foundation_S00.md) | — |
+| S00 | Foundation: theme, app shell, shared components, API client, auth guard | all | — | [00 - Foundation/foundation_S00.md](00%20-%20Foundation/foundation_S00.md) | Built |
 | S01 | Login | public | `/login` | [01 - Auth/login_S01.md](01%20-%20Auth/login_S01.md) | **NEEDED** (auth module) |
 | S02 | Claims worklist | Admin | `/claims` | [02 - Admin/claims_worklist_S02.md](02%20-%20Admin/claims_worklist_S02.md) | Partial |
 | S03 | Claim desk (shell + 6 steps) | Admin | `/claims/:claimId/:step` | [02 - Admin/Claim Desk/claim_desk_S03.md](02%20-%20Admin/Claim%20Desk/claim_desk_S03.md) | Mostly READY |

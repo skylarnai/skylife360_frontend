@@ -8,7 +8,7 @@
 | Prototype reference | `:root` tokens, `.hdr`, `.tabs`, `.card`, `.tile`, `.chip`, `.btn`, `.tblw`, `apiRail()`, `activityRail()` and `shell()` |
 | Depends on | — |
 | Next screens that depend on this | All |
-| Status | Planned |
+| Status | Built |
 
 ## 1. Purpose
 
