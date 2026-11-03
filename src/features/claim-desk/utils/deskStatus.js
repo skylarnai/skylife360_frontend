@@ -4,14 +4,13 @@
  */
 export function deskStatus({
   uploaded = false,
-  retried = false,
+  failedFiles = 0,
   gapsRun = false,
   integrityRun = false,
   decision = null,
   submitted = false,
-  tpaName = 'TPA SYN-3',
+  tpaName = 'the payer',
 } = {}) {
-  const anFailed = !retried
   const reached = [
     true,
     uploaded,
@@ -25,8 +24,11 @@ export function deskStatus({
   let tone = 'teal'
 
   if (uploaded) {
-    text = anFailed ? '1 file couldn’t be read' : 'Documents ready'
-    tone = anFailed ? 'red' : 'teal'
+    text =
+      failedFiles > 0
+        ? `${failedFiles} ${failedFiles === 1 ? 'file' : 'files'} couldn’t be read`
+        : 'Documents ready'
+    tone = failedFiles > 0 ? 'red' : 'teal'
   }
   if (gapsRun) {
     text = 'Claim packet ready'

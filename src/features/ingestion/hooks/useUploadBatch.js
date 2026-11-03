@@ -1,23 +1,23 @@
 import { useCallback, useRef, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
+import { useRefreshClaim } from '@/features/claims/hooks/useClaimDocuments'
 import { generateUUID } from '@/services/api/httpClient'
 import { ingestionApi } from '../api/ingestionApi'
-import { batchQueryKey } from './useBatch'
 
 /**
- * Upload a batch of files for one patient.
+ * Upload a batch of files for one patient, linked to a claim.
  *
  * The Idempotency-Key is kept until the upload succeeds, so retrying a failed
  * request resends the same key and the backend never creates a second batch.
  * Call `startNewUpload()` whenever the picked files change.
  */
 export function useUploadBatch() {
-  const queryClient = useQueryClient()
+  const refreshClaim = useRefreshClaim()
   const idempotencyKeyRef = useRef(null)
   const [progress, setProgress] = useState(0)
 
   const mutation = useMutation({
-    mutationFn: ({ files, userId }) => {
+    mutationFn: ({ files, userId, claimId }) => {
       if (!idempotencyKeyRef.current) {
         idempotencyKeyRef.current = generateUUID()
       }
@@ -25,6 +25,7 @@ export function useUploadBatch() {
       return ingestionApi.upload({
         files,
         userId,
+        claimId,
         idempotencyKey: idempotencyKeyRef.current,
         onUploadProgress: (event) => {
           if (event.total) {
@@ -33,9 +34,9 @@ export function useUploadBatch() {
         },
       })
     },
-    onSuccess: (data) => {
+    onSuccess: (_data, { claimId }) => {
       idempotencyKeyRef.current = null
-      queryClient.invalidateQueries({ queryKey: batchQueryKey(data.batch_id) })
+      if (claimId) refreshClaim(claimId)
     },
     onError: (error) => {
       // The key was used for a different set of files: the next try needs a fresh one.

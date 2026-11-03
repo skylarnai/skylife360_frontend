@@ -1,21 +1,25 @@
 import { httpClient } from '@/services/api/httpClient'
 
-// Upload and retry run storage + text extraction inside the request, so big ZIPs take minutes.
+// Upload and retry store the files inside the request (text is read in the background), so big ZIPs take a while.
 const LONG_REQUEST_TIMEOUT_MS = 300_000
 
 export const ingestionApi = {
   /**
    * POST /api/v1/ingestion/upload (READY)
-   * multipart files[] + user_id (patient ID) + optional classification_type
+   * multipart files[] + user_id (patient ID) + optional claim_id, classification_type
    * Idempotency-Key header → 201 { batch_id, files: FileResult[], counts }
    */
-  async upload({ files = [], userId, classificationType, idempotencyKey, onUploadProgress }) {
+  async upload({ files = [], userId, claimId, classificationType, idempotencyKey, onUploadProgress }) {
     const formData = new FormData()
     files.forEach((file) => {
       formData.append('files', file)
     })
     if (userId) {
       formData.append('user_id', userId)
+    }
+    if (claimId) {
+      // Links the batch to the claim; 400 CLAIM_PATIENT_MISMATCH if user_id isn't the claim's patient.
+      formData.append('claim_id', claimId)
     }
     if (classificationType) {
       formData.append('classification_type', classificationType)
@@ -68,6 +72,26 @@ export const ingestionApi = {
       formData,
       { timeout: LONG_REQUEST_TIMEOUT_MS }
     )
+    return data
+  },
+
+  /**
+   * GET /api/v1/files/{file_id}/download (READY)
+   * → { url (presigned, 5 min), filename, content_type }. 404 when the file isn't stored.
+   */
+  async getFileDownload(fileId) {
+    const { data } = await httpClient.get(`/files/${encodeURIComponent(fileId)}/download`)
+    return data
+  },
+
+  /**
+   * GET /api/v1/files/{file_id}/text?page= (READY)
+   * → { file_id, page, total_pages, text, has_ocr }
+   */
+  async getFileText(fileId, page = 1) {
+    const { data } = await httpClient.get(`/files/${encodeURIComponent(fileId)}/text`, {
+      params: { page },
+    })
     return data
   },
 }

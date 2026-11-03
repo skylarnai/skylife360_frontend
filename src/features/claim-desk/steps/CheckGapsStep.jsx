@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { EmptyStep } from '@/components/common/EmptyStep'
+import { useClaimDocuments } from '@/features/claims/hooks/useClaimDocuments'
 import { Button, ErrorBox } from '@/components/ui'
 import { ClaimDetailsForm } from '@/features/gaps/components/ClaimDetailsForm'
 import { GapFindingList } from '@/features/gaps/components/GapFindingList'
@@ -10,7 +11,6 @@ import { useIntake } from '@/features/gaps/hooks/useIntake'
 import { usePacket } from '@/features/gaps/hooks/usePacket'
 import { useRunIntake } from '@/features/gaps/hooks/useRunIntake'
 import { getIntakeFilesSummary } from '@/features/gaps/utils/intakeFiles'
-import { useBatch } from '@/features/ingestion/hooks/useBatch'
 import { useActivity } from '@/hooks/useActivity'
 import { useUiStore } from '@/store/uiStore'
 import { useClaimDesk } from '../hooks/useClaimDesk'
@@ -24,23 +24,21 @@ export function CheckGapsStep() {
 
   const { claim, desk, updateDesk } = useClaimDesk(claimId)
 
-  // Batch ID & Intake ID management from query params and desk state
-  const batchId = searchParams.get('batch') || desk.batchId
+  // Intake ID from ?intake= or the desk state; documents come from the claim itself
   const intakeId = searchParams.get('intake') || desk.intakeId
 
-  const batchQuery = useBatch(batchId)
+  const documentsQuery = useClaimDocuments(claimId)
   const intakeQuery = useIntake(intakeId)
 
   const gapRunId = intakeQuery.data?.gap_run_id || desk.gapRunId
   const packetId = intakeQuery.data?.packet_id || desk.packetId
-  const integrityRunId = intakeQuery.data?.integrity_run_id || desk.integrityRunId
 
   const gapRunQuery = useGapRun(gapRunId)
   const packetQuery = usePacket(packetId)
   const runIntakeMutation = useRunIntake()
 
   // Eligible files summary for intake
-  const docSummary = getIntakeFilesSummary(batchQuery.data?.files)
+  const docSummary = getIntakeFilesSummary(documentsQuery.data?.files)
 
   // Synchronize desk state when an existing intake is loaded
   useEffect(() => {
@@ -91,22 +89,27 @@ export function CheckGapsStep() {
     },
   })
 
-  // Keep form in sync when claim finishes loading
-  useEffect(() => {
-    if (claim) {
-      setFormData((prev) => ({
-        ...prev,
-        user_id: claim.user_id || prev.user_id,
-        payer_id: claim.payer_id || prev.payer_id,
-        payer_name: claim.payer_name || prev.payer_name,
-        subscriber: {
-          ...prev.subscriber,
-          member_id: claim.policy_number || prev.subscriber.member_id,
-          gender: claim.patient?.sex || prev.subscriber.gender,
-        },
-      }))
-    }
-  }, [claim])
+  // Prefill from the claim once it loads (adjusting state during render, not in an effect).
+  const [prefilledFrom, setPrefilledFrom] = useState(null)
+  if (claim && prefilledFrom !== claim) {
+    setPrefilledFrom(claim)
+    // patient.name is one string ("Sunita Menon"): first word = first name, the rest = last name.
+    const [firstName, ...rest] = String(claim.patient?.name || '').trim().split(/\s+/)
+    const lastName = rest.join(' ')
+    setFormData((prev) => ({
+      ...prev,
+      user_id: claim.user_id || prev.user_id,
+      payer_id: claim.payer_id || prev.payer_id,
+      payer_name: claim.payer_name || prev.payer_name,
+      subscriber: {
+        ...prev.subscriber,
+        member_id: claim.policy_number || prev.subscriber.member_id,
+        first_name: firstName || prev.subscriber.first_name,
+        last_name: lastName || prev.subscriber.last_name,
+        gender: claim.patient?.sex || prev.subscriber.gender,
+      },
+    }))
+  }
 
   const handleRunGaps = () => {
     if (!docSummary.isReady) return
@@ -139,7 +142,6 @@ export function CheckGapsStep() {
 
   const goToIntegrity = () => {
     const params = new URLSearchParams()
-    if (batchId) params.set('batch', batchId)
     if (intakeId || desk.intakeId) params.set('intake', intakeId || desk.intakeId)
     const qs = params.toString() ? `?${params.toString()}` : ''
     navigate(`/claims/${claimId}/integrity${qs}`)
@@ -156,7 +158,7 @@ export function CheckGapsStep() {
         </span>
       </div>
 
-      {!desk.uploaded && !batchId ? (
+      {!desk.uploaded ? (
         <EmptyStep
           message="Nothing uploaded yet."
           actionText="Go to step 1."

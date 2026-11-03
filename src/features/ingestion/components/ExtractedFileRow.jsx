@@ -1,19 +1,22 @@
 import { useState } from 'react'
 import { Button, Chip } from '@/components/ui'
 import { getDocTypeLabel } from '@/constants/statusMaps'
+import { FileTextPanel } from './FileTextPanel'
 
 /**
  * Renders a single stored document row on Step 2 (Read Documents).
  * Displays document name, classification chip, pages/scan/table count, status chip,
  * and an inline retry box if text extraction failed.
  */
-export function ExtractedFileRow({ row, onRetry, retrying = false }) {
+export function ExtractedFileRow({ row, onRetry, retrying = false, onOpen, opening = false }) {
   const [justRetried, setJustRetried] = useState(false)
+  const [showText, setShowText] = useState(false)
+  const canViewText = row.isReady
   const isPendingRetry = retrying && justRetried
 
   const handleRetryClick = () => {
     setJustRetried(true)
-    onRetry?.(row.id, row.name)
+    onRetry?.(row)
   }
 
   const border = row.isFailed ? '1px solid var(--red)' : '1px solid var(--line)'
@@ -35,8 +38,20 @@ export function ExtractedFileRow({ row, onRetry, retrying = false }) {
         <div className="row" style={{ gap: '8px', alignItems: 'center', flexShrink: 0 }}>
           <span className="small muted mono">{row.pagesText}</span>
           <Chip tone={row.tone}>{row.chip}</Chip>
+          {canViewText && (
+            <Button size="sm" onClick={() => setShowText((v) => !v)} aria-expanded={showText}>
+              {showText ? 'Hide text' : 'View text'}
+            </Button>
+          )}
+          {onOpen && (
+            <Button size="sm" loading={opening} onClick={() => onOpen(row.id)}>
+              Open
+            </Button>
+          )}
         </div>
       </div>
+
+      {showText && canViewText && <FileTextPanel fileId={row.id} />}
 
       {row.isFailed && (
         <div

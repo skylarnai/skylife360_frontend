@@ -41,7 +41,7 @@ export function FileDropzone({ onFilesAdded, disabled = false, children }) {
       <div className="row" style={{ gap: '8px 14px' }}>
         <b>Drop files or a ZIP here</b>
         <span className="small muted">
-          PDF, Word, Excel, CSV, JSON, text and images, up to 50 MB each. ZIP files are opened and
+          PDF, Word, Excel, CSV, JSON, text, images and TIFF scans, up to 50 MB each. ZIP files are opened and
           every file is checked and virus-scanned.
         </span>
         <Button

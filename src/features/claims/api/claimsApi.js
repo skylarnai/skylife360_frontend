@@ -1,53 +1,32 @@
 import { httpClient } from '@/services/api/httpClient'
-import { MOCK_CLAIMS, MOCK_WORKLIST_SUMMARY } from './claimsApi.mock'
+
+const enc = encodeURIComponent
 
 export const claimsApi = {
   /**
-   * GET /api/v1/claims?stage=&payer=&q=&limit=&offset= (NEEDED)
-   * Falls back to MOCK_CLAIMS until backend endpoint is added.
+   * GET /api/v1/claims?stage=&payer=&q=&limit=&offset= (READY)
+   * → { total, items: ClaimItem[], summary: { open_claims, awaiting_approval, items_to_fix, settled_this_week } }
    */
   async getClaims(params = {}) {
-    try {
-      const { data } = await httpClient.get('/claims', { params })
-      return data
-    } catch {
-      let items = [...MOCK_CLAIMS]
-      if (params.stage && params.stage !== 'all') {
-        items = items.filter((c) => c.stage === params.stage)
-      }
-      if (params.q) {
-        const q = String(params.q).toLowerCase()
-        items = items.filter(
-          (c) =>
-            c.claim_id.toLowerCase().includes(q) ||
-            c.user_id.toLowerCase().includes(q) ||
-            c.procedure_name.toLowerCase().includes(q)
-        )
-      }
-      return {
-        total: items.length,
-        items,
-        summary: MOCK_WORKLIST_SUMMARY,
-      }
-    }
+    const query = Object.fromEntries(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '' && v !== 'all')
+    )
+    const { data } = await httpClient.get('/claims', { params: query })
+    return data
   },
 
   /**
-   * GET /api/v1/claims/{claim_id} (NEEDED)
+   * GET /api/v1/claims/{claim_id} (READY)
+   * Claim header: patient, payer, scheme, stage, document_counts. 404 NOT_FOUND / 403 ACCESS_DENIED.
    */
   async getClaimById(claimId) {
-    try {
-      const { data } = await httpClient.get(`/claims/${claimId}`)
-      return data
-    } catch {
-      return (
-        MOCK_CLAIMS.find((c) => c.claim_id === claimId) || MOCK_CLAIMS[0]
-      )
-    }
+    const { data } = await httpClient.get(`/claims/${enc(claimId)}`)
+    return data
   },
 
   /**
-   * POST /api/v1/claims (NEEDED)
+   * POST /api/v1/claims (READY)
+   * Creates the claim and grants the patient to this tenant. 409 CLAIM_ALREADY_EXISTS.
    */
   async createClaim(payload) {
     const { data } = await httpClient.post('/claims', payload)
@@ -55,10 +34,28 @@ export const claimsApi = {
   },
 
   /**
+   * GET /api/v1/claims/{claim_id}/documents (READY)
+   * Every file linked to the claim across uploads:
+   * → { claim_id, is_complete, counts, batches: [{batch_id, created_at, file_count}], files: (FileResult & {batch_id})[] }
+   */
+  async getClaimDocuments(claimId) {
+    const { data } = await httpClient.get(`/claims/${enc(claimId)}/documents`)
+    return data
+  },
+
+  /**
+   * DELETE /api/v1/claims/{claim_id}/documents/{file_id} (READY)
+   * Removes a file from the claim (soft delete, audited). 204. Needs files:upload.
+   */
+  async deleteClaimDocument(claimId, fileId) {
+    await httpClient.delete(`/claims/${enc(claimId)}/documents/${enc(fileId)}`)
+  },
+
+  /**
    * GET /api/v1/claims/intake/{intake_id} (READY)
    */
   async getIntake(intakeId) {
-    const { data } = await httpClient.get(`/claims/intake/${intakeId}`)
+    const { data } = await httpClient.get(`/claims/intake/${enc(intakeId)}`)
     return data
   },
 
@@ -66,23 +63,15 @@ export const claimsApi = {
    * GET /api/v1/reviews/pending (READY)
    */
   async getPendingReviews(params = { limit: 1, offset: 0 }) {
-    try {
-      const { data } = await httpClient.get('/reviews/pending', { params })
-      return data
-    } catch {
-      return { total: MOCK_WORKLIST_SUMMARY.awaiting_approval, items: [] }
-    }
+    const { data } = await httpClient.get('/reviews/pending', { params })
+    return data
   },
 
   /**
    * GET /api/v1/claims/submissions (READY)
    */
   async getSubmissions(params = {}) {
-    try {
-      const { data } = await httpClient.get('/claims/submissions', { params })
-      return data
-    } catch {
-      return { total: MOCK_WORKLIST_SUMMARY.settled_this_week, items: [] }
-    }
+    const { data } = await httpClient.get('/claims/submissions', { params })
+    return data
   },
 }

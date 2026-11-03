@@ -1571,3 +1571,74 @@ main.wrap > * {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* new claim form */
+.ncf {
+  display: grid;
+  gap: 20px;
+}
+
+.ncf-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 4px 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.ncf-head h3 {
+  font-size: 16px;
+}
+
+.ncf-section {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.ncf-section > legend {
+  padding: 0;
+  margin-bottom: 10px;
+}
+
+.ncf-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px 16px;
+  align-items: start;
+}
+
+.ncf-grid .field {
+  align-content: start;
+  gap: 6px;
+}
+
+.ncf-grid .field input,
+.ncf-grid .field select {
+  height: 40px;
+}
+
+.ncf-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 900px) {
+  .ncf-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .ncf-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

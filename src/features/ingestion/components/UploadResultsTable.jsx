@@ -1,7 +1,7 @@
-import { Chip, DataTable, Tile, TileGrid } from '@/components/ui'
+import { Button, Chip, DataTable, Tile, TileGrid } from '@/components/ui'
 import { toUploadRows, toUploadTiles } from '../utils/fileResultView'
 
-const COLUMNS = [
+const BASE_COLUMNS = [
   {
     key: 'name',
     header: 'FILE',
@@ -36,10 +36,51 @@ const COLUMNS = [
   },
 ]
 
-/** Count tiles + per-file results for one upload batch (also reusable by S05). */
-export function UploadResultsTable({ batch, loading = false }) {
+/**
+ * Count tiles + per-file results for a claim's documents (or one upload batch).
+ * Pass onOpen / onRemove to show the row actions.
+ */
+export function UploadResultsTable({
+  batch,
+  loading = false,
+  onOpen,
+  onRemove,
+  openingId = null,
+  removingId = null,
+}) {
   const tiles = toUploadTiles(batch?.counts)
   const rows = toUploadRows(batch?.files)
+
+  const columns =
+    onOpen || onRemove
+      ? [
+          ...BASE_COLUMNS,
+          {
+            key: 'actions',
+            header: '',
+            render: (row) => (
+              <div className="row" style={{ gap: '6px', flexWrap: 'nowrap', justifyContent: 'flex-end' }}>
+                {onOpen && row.canOpen && (
+                  <Button size="sm" loading={openingId === row.id} onClick={() => onOpen(row)}>
+                    Open
+                  </Button>
+                )}
+                {onRemove && row.canRemove && (
+                  <Button
+                    size="sm"
+                    loading={removingId === row.id}
+                    disabled={Boolean(removingId)}
+                    onClick={() => onRemove(row)}
+                    aria-label={`Remove ${row.name} from this claim`}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
+            ),
+          },
+        ]
+      : BASE_COLUMNS
 
   return (
     <>
@@ -54,11 +95,11 @@ export function UploadResultsTable({ batch, loading = false }) {
         ))}
       </TileGrid>
       <DataTable
-        columns={COLUMNS}
+        columns={columns}
         rows={rows}
         loading={loading}
-        emptyMessage="No files in this upload."
-        minWidth={640}
+        emptyMessage="No documents on this claim yet."
+        minWidth={onOpen || onRemove ? 760 : 640}
       />
     </>
   )
