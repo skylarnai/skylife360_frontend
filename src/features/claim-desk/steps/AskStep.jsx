@@ -1,38 +1,56 @@
-import { useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { EmptyStep } from '@/components/common/EmptyStep'
-import { Button, Chip, Kv, Lbl } from '@/components/ui'
-import { evaluationApi } from '@/features/rag/api/evaluationApi'
-import { ragApi } from '@/features/rag/api/ragApi'
+import { Button, ErrorBox } from '@/components/ui'
+import { AnswerBox } from '@/features/rag/components/AnswerBox'
+import { AnswerCheck } from '@/features/rag/components/AnswerCheck'
+import { AskInput } from '@/features/rag/components/AskInput'
+import { QuestionChips } from '@/features/rag/components/QuestionChips'
+import { SourcesList } from '@/features/rag/components/SourcesList'
+import { useAsk } from '@/features/rag/hooks/useAsk'
 import { useActivity } from '@/hooks/useActivity'
 import { SUGGESTED_QUESTIONS } from '../constants'
 import { useClaimDesk } from '../hooks/useClaimDesk'
 
 export function AskStep() {
-  const { claimId = 'SUV-261028-01' } = useParams()
+  const { claimId } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { log } = useActivity()
   const { claim, desk, updateDesk } = useClaimDesk(claimId)
 
-  const handleSelectQuestion = async (index) => {
-    const selectedQ = SUGGESTED_QUESTIONS[index]
-    updateDesk({ q: index, asked: true })
-    log(`asked: ${selectedQ.text}`)
+  // Maintain batch query parameter across step transitions
+  const batchId = searchParams.get('batch') || desk.batchId
+  const patientId = claim?.user_id || 'SYN-P-1042'
 
-    try {
-      const response = await ragApi.ask({
-        query: selectedQ.text,
-        filters: { user_id: claim?.user_id || 'SYN-P-1042' },
-        stream: false,
-      })
-      if (response?.generation_id) {
-        await evaluationApi.evaluate({ generationId: response.generation_id })
-      }
-    } catch {
-      // Uses prototype answer block when backend is not connected
+  const [selectedIdx, setSelectedIdx] = useState(null)
+  const [activeQuery, setActiveQuery] = useState('')
+
+  const { ask, data: ragResponse, isLoading, isError, error, evaluation, isEvaluating } = useAsk()
+
+  const handleAskQuestion = (questionText, idx = null) => {
+    setSelectedIdx(idx)
+    setActiveQuery(questionText)
+    if (idx !== null) {
+      updateDesk({ q: idx, asked: true })
+    } else {
+      updateDesk({ asked: true })
     }
+    log(`asked: ${questionText}`)
+
+    ask({
+      query: questionText,
+      userId: patientId,
+    })
   }
 
-  const currentQa = SUGGESTED_QUESTIONS[desk.q] || SUGGESTED_QUESTIONS[0]
+  const goToNextStep = () => {
+    navigate(`/claims/${claimId}/gaps${batchId ? `?batch=${encodeURIComponent(batchId)}` : ''}`)
+  }
+
+  // Fallback prototype presentation if offline or before any question
+  const showFallback = !ragResponse && desk.asked && !isLoading
+  const currentDemoQa = SUGGESTED_QUESTIONS[desk.q] || SUGGESTED_QUESTIONS[0]
 
   return (
     <>
@@ -43,7 +61,7 @@ export function AskStep() {
         </span>
       </div>
 
-      {!desk.uploaded ? (
+      {!desk.uploaded && !batchId ? (
         <EmptyStep
           message="Nothing uploaded yet."
           actionText="Go to step 1."
@@ -51,99 +69,84 @@ export function AskStep() {
         />
       ) : (
         <>
-          <div className="row" style={{ gap: '6px' }}>
-            {SUGGESTED_QUESTIONS.map((q, idx) => (
-              <button
-                key={q.text}
-                type="button"
-                className="qbtn"
-                aria-pressed={desk.asked && desk.q === idx}
-                onClick={() => handleSelectQuestion(idx)}
-              >
-                {q.text}
-              </button>
-            ))}
-          </div>
+          <QuestionChips
+            questions={SUGGESTED_QUESTIONS}
+            selectedIndex={selectedIdx}
+            onSelect={(idx, text) => handleAskQuestion(text, idx)}
+            disabled={isLoading}
+          />
 
-          {desk.asked && (
+          <AskInput
+            onSubmit={(text) => handleAskQuestion(text, null)}
+            disabled={isLoading}
+            loading={isLoading}
+            placeholder="Type a question about this claim…"
+          />
+
+          {isError && (
+            <ErrorBox
+              message={error?.message || 'Failed to retrieve answer for this question.'}
+              onRetry={() => activeQuery && handleAskQuestion(activeQuery, selectedIdx)}
+            />
+          )}
+
+          {isLoading && (
+            <AnswerBox loading={true} />
+          )}
+
+          {ragResponse && !isLoading && (
             <>
-              <div
-                style={{
-                  background: 'var(--tint)',
-                  border: '1px solid var(--line)',
-                  borderRadius: '8px',
-                  padding: '14px 16px',
-                }}
-              >
-                <div className="row" style={{ marginBottom: '6px' }}>
-                  <Lbl>Answer</Lbl>
-                  {currentQa.found ? (
-                    <Chip tone="ok">
-                      FROM {currentQa.cites.length} DOCUMENT
-                      {currentQa.cites.length > 1 ? 'S' : ''}
-                    </Chip>
-                  ) : (
-                    <Chip tone="grey">NOT IN THE DOCUMENTS</Chip>
-                  )}
-                </div>
-                <p style={{ margin: 0, fontSize: '15.5px', lineHeight: 1.65 }}>
-                  {currentQa.segs.map(([txt, isCite], segIdx) =>
-                    isCite ? (
-                      <span key={segIdx} className="cite">
-                        {txt}
-                      </span>
-                    ) : (
-                      <span key={segIdx}>{txt}</span>
-                    )
-                  )}
-                </p>
-              </div>
+              <AnswerBox
+                answer={ragResponse.answer}
+                answered={ragResponse.answered}
+                citations={ragResponse.citations}
+              />
 
-              {currentQa.cites.length > 0 && (
+              {ragResponse.sources && ragResponse.sources.length > 0 && (
+                <SourcesList
+                  sources={ragResponse.sources}
+                  citations={ragResponse.citations}
+                />
+              )}
+
+              <AnswerCheck
+                evaluation={evaluation}
+                loading={isEvaluating}
+              />
+            </>
+          )}
+
+          {showFallback && (
+            <>
+              <AnswerBox
+                answer={currentDemoQa.segs.map(([txt]) => txt).join('')}
+                answered={currentDemoQa.found}
+                citations={currentDemoQa.cites.map(([num, name]) => ({
+                  label: `doc_${num}`,
+                  original_filename: name,
+                }))}
+              />
+
+              {currentDemoQa.cites.length > 0 && (
                 <div style={{ display: 'grid', gap: '6px' }}>
-                  <Lbl>Sources</Lbl>
-                  {currentQa.cites.map(([num, fileName, page, matchPct, isScanned]) => (
-                    <div
-                      key={`${num}-${fileName}`}
-                      className="row"
-                      style={{
-                        border: '1px solid var(--line)',
-                        borderRadius: '6px',
-                        padding: '7px 10px',
-                        fontSize: '13.5px',
-                        gap: '4px 12px',
-                      }}
-                    >
-                      <span
-                        className="mono"
-                        style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)' }}
-                      >
-                        [{num}]
-                      </span>
-                      <b style={{ fontWeight: 600 }}>{fileName}</b>
-                      <span className="muted">
-                        Page {page}
-                        {isScanned ? ' · scanned' : ''} · {matchPct}% match
-                      </span>
-                    </div>
-                  ))}
+                  <SourcesList
+                    sources={currentDemoQa.cites.map(([num, fileName, page, matchPct, isScanned]) => ({
+                      chunk_id: `${num}-${fileName}`,
+                      original_filename: fileName,
+                      page_number: page,
+                      relevance_score: matchPct / 100,
+                      has_ocr: isScanned,
+                    }))}
+                  />
                 </div>
               )}
 
-              <div
-                className="tile"
-                style={{ background: 'var(--surface)', display: 'grid', gap: '6px' }}
-              >
-                <b style={{ font: '700 14px var(--f-display)' }}>Answer check</b>
-                <Kv label="Backed by the documents" value={currentQa.found ? 'Yes' : '—'} />
-                <Kv label="Answers the question" value={currentQa.found ? '5 / 5' : '—'} />
-                <Kv label="Clinically safe" value="Yes" />
-              </div>
+              <AnswerCheck />
             </>
           )}
 
           <div className="row">
-            <Button variant="pri" onClick={() => navigate(`/claims/${claimId}/gaps`)}>
+            <Button variant="pri" onClick={goToNextStep}>
               Next: check gaps →
             </Button>
           </div>
