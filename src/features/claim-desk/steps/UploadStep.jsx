@@ -1,12 +1,16 @@
-import { useEffect, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { Button, ErrorBox, Note } from '@/components/ui'
 import { PERMISSIONS } from '@/constants/permissions'
+import {
+  useClaimDocuments,
+  useDeleteClaimDocument,
+} from '@/features/claims/hooks/useClaimDocuments'
 import { FileDropzone } from '@/features/ingestion/components/FileDropzone'
 import { PickedFileList } from '@/features/ingestion/components/PickedFileList'
 import { UploadProgress } from '@/features/ingestion/components/UploadProgress'
 import { UploadResultsTable } from '@/features/ingestion/components/UploadResultsTable'
-import { useBatch } from '@/features/ingestion/hooks/useBatch'
+import { useOpenFile } from '@/features/ingestion/hooks/useOpenFile'
 import { useUploadBatch } from '@/features/ingestion/hooks/useUploadBatch'
 import {
   MAX_BATCH_BYTES,
@@ -21,28 +25,22 @@ import { useClaimDesk } from '../hooks/useClaimDesk'
 export function UploadStep() {
   const { claimId } = useParams()
   const navigate = useNavigate()
-  const [searchParams, setSearchParams] = useSearchParams()
   const { log } = useActivity()
   const canUpload = usePermission(PERMISSIONS.FILES_UPLOAD)
-  const { claim, isLoadingClaim, desk, updateDesk } = useClaimDesk(claimId)
+  const { claim, isLoadingClaim, updateDesk } = useClaimDesk(claimId)
 
-  // The batch lives in the URL (?batch=) so a refresh can reload it (no claim ↔ batch link in the API yet).
-  const batchId = searchParams.get('batch') || desk.batchId
-  const batchQuery = useBatch(batchId)
+  // Every document on the claim, across all uploads (GET /claims/{id}/documents).
+  const documentsQuery = useClaimDocuments(claimId)
   const uploadMutation = useUploadBatch()
+  const deleteMutation = useDeleteClaimDocument(claimId)
+  const { openFile, openingId, error: openError } = useOpenFile()
 
   const [picked, setPicked] = useState([])
   const [addingMore, setAddingMore] = useState(false)
 
   const patientId = claim?.user_id || null
-  const showPicker = canUpload && (!batchId || addingMore)
-
-  // Keep the desk store in step with a batch reloaded from the URL (later steps still read it).
-  useEffect(() => {
-    if (batchQuery.data && desk.batchId !== batchQuery.data.batch_id) {
-      updateDesk({ uploaded: true, batchId: batchQuery.data.batch_id })
-    }
-  }, [batchQuery.data, desk.batchId, updateDesk])
+  const hasDocuments = (documentsQuery.data?.files?.length ?? 0) > 0
+  const showPicker = canUpload && (addingMore || (!documentsQuery.isLoading && !hasDocuments))
 
   const totalBytes = picked.reduce((sum, file) => sum + file.size, 0)
   const tooMany = picked.length > MAX_FILES_PER_BATCH
@@ -57,7 +55,7 @@ export function UploadStep() {
     uploadMutation.startNewUpload()
   }
 
-  const handleRemove = (file) => {
+  const handleRemovePicked = (file) => {
     const key = pickedFileKey(file)
     setPicked((current) => current.filter((f) => pickedFileKey(f) !== key))
     uploadMutation.startNewUpload()
@@ -66,24 +64,26 @@ export function UploadStep() {
   const handleUpload = () => {
     if (!patientId || picked.length === 0 || tooMany || tooBig) return
     uploadMutation.mutate(
-      { files: picked, userId: patientId },
+      { files: picked, userId: patientId, claimId },
       {
         onSuccess: (data) => {
           const counts = data.counts || {}
           setPicked([])
           setAddingMore(false)
-          setSearchParams({ batch: data.batch_id })
           updateDesk({ uploaded: true, batchId: data.batch_id })
           log(
-            `uploaded batch: ${counts.successful ?? 0} ingested, ${counts.duplicate ?? 0} duplicate, ${counts.rejected ?? 0} rejected`
+            `uploaded ${counts.successful ?? 0} file(s): ${counts.duplicate ?? 0} duplicate, ${counts.rejected ?? 0} not allowed`
           )
         },
       }
     )
   }
 
-  const goToRead = () => {
-    navigate(`/claims/${claimId}/read${batchId ? `?batch=${encodeURIComponent(batchId)}` : ''}`)
+  const handleRemoveDocument = (row) => {
+    if (!window.confirm(`Remove ${row.name} from this claim?`)) return
+    deleteMutation.mutate(row.id, {
+      onSuccess: () => log(`removed ${row.name} from the claim`),
+    })
   }
 
   return (
@@ -100,7 +100,7 @@ export function UploadStep() {
           )}
 
           <FileDropzone onFilesAdded={handleFilesAdded} disabled={uploading}>
-            <PickedFileList files={picked} onRemove={handleRemove} disabled={uploading} />
+            <PickedFileList files={picked} onRemove={handleRemovePicked} disabled={uploading} />
           </FileDropzone>
 
           {tooMany && (
@@ -130,7 +130,7 @@ export function UploadStep() {
             >
               {picked.length === 1 ? 'Upload 1 item' : `Upload ${picked.length} items`}
             </Button>
-            {batchId && !uploading && (
+            {hasDocuments && !uploading && (
               <Button
                 onClick={() => {
                   setAddingMore(false)
@@ -138,27 +138,40 @@ export function UploadStep() {
                   uploadMutation.startNewUpload()
                 }}
               >
-                Back to results
+                Back to documents
               </Button>
             )}
             <span className="small muted">
-              Files are stored securely and read automatically after upload.
+              Files are stored securely; their text is read in the background.
             </span>
           </div>
         </>
-      ) : batchId ? (
+      ) : documentsQuery.isError ? (
+        <ErrorBox
+          message={uploadErrorMessage(documentsQuery.error)}
+          onRetry={() => documentsQuery.refetch()}
+        />
+      ) : hasDocuments || documentsQuery.isLoading ? (
         <>
-          {batchQuery.isError ? (
-            <ErrorBox
-              message={uploadErrorMessage(batchQuery.error)}
-              onRetry={() => batchQuery.refetch()}
-            />
-          ) : (
-            <UploadResultsTable batch={batchQuery.data} loading={batchQuery.isLoading} />
+          {(openError || deleteMutation.isError) && (
+            <ErrorBox message={uploadErrorMessage(openError || deleteMutation.error)} />
           )}
 
+          <UploadResultsTable
+            batch={documentsQuery.data}
+            loading={documentsQuery.isLoading}
+            onOpen={(row) => openFile(row.id)}
+            onRemove={canUpload ? handleRemoveDocument : undefined}
+            openingId={openingId}
+            removingId={deleteMutation.isPending ? deleteMutation.variables : null}
+          />
+
           <div className="row">
-            <Button variant="pri" disabled={!batchQuery.data} onClick={goToRead}>
+            <Button
+              variant="pri"
+              disabled={!hasDocuments}
+              onClick={() => navigate(`/claims/${claimId}/read`)}
+            >
               Next: read documents →
             </Button>
             {canUpload && <Button onClick={() => setAddingMore(true)}>↺ Upload more</Button>}

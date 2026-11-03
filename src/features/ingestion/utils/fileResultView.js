@@ -1,11 +1,12 @@
 import { getExtractionStatusInfo, getIngestionStatusInfo } from '@/constants/statusMaps'
 
 // Mirrors the backend defaults in app/core/settings.py (upload limits).
-export const UPLOAD_ACCEPT = '.pdf,.doc,.docx,.txt,.md,.png,.jpg,.jpeg,.csv,.xls,.xlsx,.json,.zip'
+export const UPLOAD_ACCEPT =
+  '.pdf,.doc,.docx,.txt,.md,.png,.jpg,.jpeg,.tif,.tiff,.csv,.xls,.xlsx,.json,.zip'
 export const MAX_FILES_PER_BATCH = 50
 export const MAX_BATCH_BYTES = 500 * 1024 * 1024
 
-const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg']
+const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.tif', '.tiff']
 
 function hasExtension(name, extensions) {
   const lower = String(name || '').toLowerCase()
@@ -35,9 +36,11 @@ function uploadDetail(file, allFiles) {
       return 'Stored and verified'
     }
     case 'DUPLICATE': {
-      const original = allFiles.find((f) => f.file_id === file.duplicate_of_file_id)
-      return original
-        ? `Same file as ${original.original_filename}, not stored twice`
+      const originalName =
+        file.duplicate_of_filename ||
+        allFiles.find((f) => f.file_id === file.duplicate_of_file_id)?.original_filename
+      return originalName
+        ? `Same file as ${originalName}, not stored twice`
         : 'Already uploaded for this patient, not stored twice'
     }
     case 'REJECTED':
@@ -63,6 +66,9 @@ export function toUploadRow(file, allFiles = []) {
     detail: uploadDetail(file, allFiles),
     sizeText: formatBytes(file.file_size_bytes),
     indent: Boolean(file.archive_parent_id),
+    // Only stored files can be opened; ZIP children are removed together with their archive.
+    canOpen: file.status === 'INGESTED' && !file.is_archive,
+    canRemove: !file.archive_parent_id,
   }
 }
 
@@ -104,8 +110,12 @@ export function uploadErrorMessage(error) {
     case 'IDEMPOTENCY_KEY_REUSED':
     case 'BATCH_IN_PROGRESS':
       return 'This upload is already being processed. Wait a moment, then check the results.'
+    case 'CLAIM_PATIENT_MISMATCH':
+      return 'These files are for a different patient than this claim.'
+    case 'CLAIM_ALREADY_EXISTS':
+      return 'A claim with this ID already exists.'
     case 'NOT_FOUND':
-      return 'This upload could not be found.'
+      return error.message || 'This could not be found.'
     default:
       break
   }
@@ -151,6 +161,8 @@ export function toReadRow(file) {
     tone: statusInfo.tone,
     isFailed,
     isReading,
+    isReady: extraction.status === 'INDEXED',
+    batchId: file.batch_id || null,
     canRetry: Boolean(extraction.retry_eligible ?? file.retry_eligible),
     error: extraction.error_message || file.error_message || 'Reading timed out or could not be completed.',
   }

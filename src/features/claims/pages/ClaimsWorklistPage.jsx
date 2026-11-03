@@ -1,144 +1,243 @@
+import { useDeferredValue, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getClaimStageInfo } from '@/constants/statusMaps'
+import { CLAIM_STAGE_MAP, getClaimStageInfo } from '@/constants/statusMaps'
+import { PERMISSIONS } from '@/constants/permissions'
 import { ApiRail } from '@/components/dev/ApiRail'
 import { TwoColumn } from '@/components/layout/TwoColumn'
-import { Button, Chip, DataTable, ErrorBox, Tile, TileGrid } from '@/components/ui'
+import {
+  Button,
+  Chip,
+  DataTable,
+  ErrorBox,
+  SearchInput,
+  Select,
+  Tile,
+  TileGrid,
+} from '@/components/ui'
+import { uploadErrorMessage } from '@/features/ingestion/utils/fileResultView'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+import { usePermission } from '@/hooks/usePermission'
 import { formatMoney } from '@/utils/formatters'
-import { useClaims, usePendingReviewsCount } from '../hooks/useClaims'
+import { NewClaimForm } from '../components/NewClaimForm'
+import { useClaims } from '../hooks/useClaims'
 
 const WORKLIST_APIS = [
-  ['GET', '/api/v1/claims/intake/{intake_id}', 'READY', 'One claim intake record'],
-  ['GET', '/api/v1/reviews/pending', 'READY', 'Claims waiting for approval (tile count)'],
-  ['GET', '/api/v1/claims/submissions', 'READY', 'Submitted claims and their status'],
-  [
-    'GET',
-    '/api/v1/claims?stage=&page=',
-    'NEEDED',
-    'Paged claim list for this table (claim, patient, payer, amount, stage)',
-  ],
+  ['GET', '/api/v1/claims?stage=&payer=&q=&limit=&offset=', 'READY', 'Claim list + summary tiles'],
+  ['POST', '/api/v1/claims', 'READY', 'New claim (grants the patient to this hospital)'],
+  ['GET', '/api/v1/claims/{claim_id}', 'READY', 'Claim header on the desk'],
+]
+
+const STAGE_OPTIONS = [
+  { value: 'all', label: 'All stages' },
+  ...Object.keys(CLAIM_STAGE_MAP).map((stage) => ({ value: stage, label: stage })),
+]
+
+const PAGE_SIZE = 50
+
+const NEXT_ACTION_TONE = { pos: 'ok', neutral: 'grey' }
+
+const COLUMNS = [
+  {
+    key: 'claim_id',
+    header: 'CLAIM',
+    render: (row) => (
+      <span className="mono" style={{ fontSize: '12.5px', color: 'var(--accent)' }}>
+        {row.claim_id}
+      </span>
+    ),
+  },
+  {
+    key: 'patient',
+    header: 'PATIENT',
+    render: (row) => (
+      <span style={{ display: 'grid' }}>
+        {row.patient?.name && <span>{row.patient.name}</span>}
+        <span className="mono muted" style={{ fontSize: '12px' }}>
+          {row.user_id}
+        </span>
+      </span>
+    ),
+  },
+  {
+    key: 'procedure_name',
+    header: 'PROCEDURE',
+    render: (row) => row.procedure_name || <span className="muted">—</span>,
+  },
+  {
+    key: 'payer',
+    header: 'PAYER',
+    cellClassName: 'small muted',
+    render: (row) => [row.payer_name, row.tpa_name].filter(Boolean).join(' · ') || '—',
+  },
+  {
+    key: 'documents',
+    header: 'DOCS',
+    num: true,
+    cellClassName: 'mono small',
+    render: (row) => {
+      const counts = row.document_counts
+      if (!counts?.files) return <span className="muted">0</span>
+      return (
+        <span title={`${counts.ready} ready · ${counts.failed} failed`}>
+          {counts.ready}/{counts.files}
+        </span>
+      )
+    },
+  },
+  {
+    key: 'estimated_amount',
+    header: 'AMOUNT',
+    num: true,
+    render: (row) => formatMoney(row.estimated_amount),
+  },
+  {
+    key: 'stage',
+    header: 'STAGE',
+    render: (row) => {
+      const st = getClaimStageInfo(row.stage)
+      return <Chip tone={st.tone}>{st.label}</Chip>
+    },
+  },
+  {
+    key: 'next_action',
+    header: 'NEXT',
+    render: (row) =>
+      row.next_action?.text ? (
+        <Chip tone={NEXT_ACTION_TONE[row.next_action.tone] || row.next_action.tone || 'grey'}>
+          {row.next_action.text}
+        </Chip>
+      ) : (
+        <span className="muted">—</span>
+      ),
+  },
 ]
 
 export function ClaimsWorklistPage() {
   useDocumentTitle('Claims')
   const navigate = useNavigate()
-  const { data, isLoading, isError, error, refetch } = useClaims()
-  const { data: pendingReviews } = usePendingReviewsCount()
+  const canCreate = usePermission(PERMISSIONS.FILES_UPLOAD)
+
+  const [stage, setStage] = useState('all')
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(0)
+  const [creating, setCreating] = useState(false)
+  const q = useDeferredValue(search.trim())
+
+  const { data, isLoading, isFetching, isError, error, refetch } = useClaims({
+    stage,
+    q,
+    limit: PAGE_SIZE,
+    offset: page * PAGE_SIZE,
+  })
 
   const claims = data?.items || []
-  const awaitingApprovalCount =
-    pendingReviews?.total ?? data?.summary?.awaiting_approval ?? 1
+  const total = data?.total ?? 0
+  const summary = data?.summary
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   const tiles = [
-    ['open claims', String(data?.summary?.open_claims ?? 3)],
-    ['awaiting approval', String(awaitingApprovalCount)],
-    ['items to fix', String(data?.summary?.items_to_fix ?? 4)],
-    ['settled this week', String(data?.summary?.settled_this_week ?? 1)],
+    ['open claims', summary?.open_claims],
+    ['awaiting approval', summary?.awaiting_approval],
+    ['items to fix', summary?.items_to_fix],
+    ['settled this week', summary?.settled_this_week],
   ]
 
-  const columns = [
-    {
-      key: 'claim_id',
-      header: 'CLAIM',
-      render: (row) => (
-        <span className="mono" style={{ fontSize: '12.5px', color: 'var(--accent)' }}>
-          {row.claim_id}
-        </span>
-      ),
-    },
-    {
-      key: 'user_id',
-      header: 'PATIENT',
-      render: (row) => (
-        <span className="mono" style={{ fontSize: '12.5px' }}>
-          {row.user_id}
-        </span>
-      ),
-    },
-    {
-      key: 'procedure_name',
-      header: 'PROCEDURE',
-    },
-    {
-      key: 'payer_display',
-      header: 'PAYER',
-      cellClassName: 'small muted',
-    },
-    {
-      key: 'estimated_amount',
-      header: 'AMOUNT',
-      num: true,
-      render: (row) => formatMoney(row.estimated_amount),
-    },
-    {
-      key: 'stage',
-      header: 'STAGE',
-      render: (row) => {
-        const st = getClaimStageInfo(row.stage)
-        return <Chip tone={st.tone}>{st.label}</Chip>
-      },
-    },
-    {
-      key: 'status',
-      header: 'STATUS',
-      render: (row) => (
-        <Chip tone={row.next_action?.tone || 'grey'}>
-          {row.next_action?.text || '—'}
-        </Chip>
-      ),
-    },
-    {
-      key: 'action',
-      header: '',
-      render: (row) =>
-        row.is_loaded_demo ? (
-          <Button
-            size="sm"
-            variant="pri"
-            onClick={(e) => {
-              e.stopPropagation()
-              navigate(`/claims/${row.claim_id}/${row.current_step || 'upload'}`)
-            }}
-          >
-            Open
-          </Button>
-        ) : (
-          <Button
-            size="sm"
-            disabled
-            title="Only SUV-261028-01 is loaded in this demo"
-          >
-            Open
-          </Button>
-        ),
-    },
-  ]
+  const openClaim = (row) =>
+    navigate(`/claims/${encodeURIComponent(row.claim_id)}/${row.current_step || 'upload'}`)
 
   return (
     <TwoColumn
       main={
         <>
-          <h2 style={{ fontSize: '20px' }}>Claims</h2>
-          <TileGrid>
-            {tiles.map(([label, value]) => (
-              <Tile key={label} label={label} value={value} />
-            ))}
-          </TileGrid>
-          {isError ? (
-            <ErrorBox message={error?.message} onRetry={refetch} />
-          ) : (
-            <DataTable
-              columns={columns}
-              rows={claims}
-              rowKey="claim_id"
-              loading={isLoading}
-              minWidth={820}
-              onRowClick={(row) => {
-                if (row.is_loaded_demo) {
-                  navigate(`/claims/${row.claim_id}/${row.current_step || 'upload'}`)
-                }
+          <div className="between" style={{ alignItems: 'center' }}>
+            <h2 style={{ fontSize: '20px' }}>Claims</h2>
+            {canCreate && !creating && (
+              <Button variant="acc" onClick={() => setCreating(true)}>
+                + New claim
+              </Button>
+            )}
+          </div>
+
+          {creating && (
+            <NewClaimForm
+              onCancel={() => setCreating(false)}
+              onCreated={(claim) => {
+                setCreating(false)
+                navigate(`/claims/${encodeURIComponent(claim.claim_id)}/upload`)
               }}
             />
+          )}
+
+          <TileGrid>
+            {tiles.map(([label, value]) => (
+              <Tile key={label} label={label} value={isLoading ? '…' : String(value ?? 0)} />
+            ))}
+          </TileGrid>
+
+          <div className="row" style={{ gap: '8px' }}>
+            <div style={{ flex: '1 1 260px' }}>
+              <SearchInput
+                placeholder="Search claim, patient or procedure"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value)
+                  setPage(0)
+                }}
+                aria-label="Search claims"
+              />
+            </div>
+            <div style={{ flex: '0 1 200px' }}>
+              <Select
+                options={STAGE_OPTIONS}
+                value={stage}
+                onChange={(e) => {
+                  setStage(e.target.value)
+                  setPage(0)
+                }}
+                aria-label="Filter by stage"
+              />
+            </div>
+          </div>
+
+          {isError ? (
+            <ErrorBox message={uploadErrorMessage(error)} onRetry={refetch} />
+          ) : (
+            <>
+              <DataTable
+                columns={COLUMNS}
+                rows={claims}
+                rowKey="claim_id"
+                loading={isLoading}
+                minWidth={900}
+                emptyMessage={
+                  q || stage !== 'all'
+                    ? 'No claims match these filters.'
+                    : 'No claims yet. Create one with “New claim”.'
+                }
+                onRowClick={openClaim}
+              />
+              {total > PAGE_SIZE && (
+                <div className="row" style={{ gap: '8px' }}>
+                  <Button
+                    size="sm"
+                    disabled={page === 0 || isFetching}
+                    onClick={() => setPage((p) => p - 1)}
+                  >
+                    ← Prev
+                  </Button>
+                  <span className="small muted">
+                    Page {page + 1} of {pageCount} · {total} claims
+                  </span>
+                  <Button
+                    size="sm"
+                    disabled={page + 1 >= pageCount || isFetching}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    Next →
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </>
       }

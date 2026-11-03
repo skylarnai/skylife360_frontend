@@ -1,7 +1,7 @@
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { ActivityRail } from '@/components/common/ActivityRail'
 import { ApiRail } from '@/components/dev/ApiRail'
-import { CardPad, Lbl, Pill } from '@/components/ui'
+import { CardPad, ErrorBox, Lbl, Pill } from '@/components/ui'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { formatMoney } from '@/utils/formatters'
 import {
@@ -28,11 +28,12 @@ const STEP_COMPONENTS = {
 }
 
 export function ClaimDeskLayout() {
-  const { claimId = 'SUV-261028-01', step = 'upload' } = useParams()
+  const { claimId, step = 'upload' } = useParams()
   const activeStepObj = DESK_STEPS.find((s) => s.key === step)
   useDocumentTitle(activeStepObj ? `${activeStepObj.title} · ${claimId}` : claimId)
 
-  const { claim, desk, gapsLeft, statusInfo } = useClaimDesk(claimId)
+  const { claim, isLoadingClaim, claimError, refetchClaim, desk, gapsLeft, statusInfo } =
+    useClaimDesk(claimId)
 
   if (!activeStepObj) {
     // A disabled step (e.g. Ask) sends the user on to the next one instead of back to the start.
@@ -44,49 +45,61 @@ export function ClaimDeskLayout() {
   const currentQuestionText =
     SUGGESTED_QUESTIONS[desk.q]?.text || SUGGESTED_QUESTIONS[0].text
 
+  if (claimError) {
+    const message =
+      claimError.status === 404
+        ? `Claim ${claimId} doesn't exist. Open it from the claims list or create it there.`
+        : claimError.status === 403
+          ? "You don't have access to this claim's patient."
+          : claimError.message || 'The claim could not be loaded.'
+    return (
+      <CardPad className="stack">
+        <ErrorBox
+          message={message}
+          onRetry={[403, 404].includes(claimError.status) ? undefined : () => refetchClaim()}
+        />
+        <Link to="/claims">← Back to claims</Link>
+      </CardPad>
+    )
+  }
+
+  const patient = claim?.patient || {}
+  const patientBits = [patient.name, patient.user_id || claim?.user_id, patient.sex, patient.age]
+    .filter((v) => v !== null && v !== undefined && v !== '')
+    .join(' · ')
+  const payerText = claim?.payer_name
+    ? `${claim.payer_name}${claim.tpa_name ? ` via ${claim.tpa_name}` : ''}`
+    : null
+  const facts = [
+    ['Patient', patientBits],
+    ['Payer', payerText],
+    ['Policy', claim?.policy_number],
+    ['Treating doctor', claim?.treating_doctor],
+  ].filter(([, value]) => value)
+
   return (
     <>
       <CardPad className="between" style={{ alignItems: 'flex-start' }}>
         <div style={{ minWidth: 0, flex: '1 1 520px' }}>
           <div className="mono" style={{ fontSize: '12px', color: 'var(--accent)' }}>
-            {claim?.claim_id || claimId} · {claim?.scheme || 'Private cashless'}
+            {claimId}
+            {claim?.scheme ? ` · ${claim.scheme}` : ''}
           </div>
           <h1 style={{ fontSize: '22px', margin: '2px 0 6px' }}>
-            {claim?.procedure_name || 'Laparoscopic cholecystectomy'}
+            {isLoadingClaim ? 'Loading claim…' : claim?.procedure_name || 'Procedure not set'}
           </h1>
           <div className="row muted" style={{ fontSize: '13.5px', gap: '4px 18px' }}>
-            <span>
-              Patient{' '}
-              <b style={{ color: 'var(--fg)', fontWeight: 600 }}>
-                {claim?.patient?.user_id || 'SYN-P-1042'} · {claim?.patient?.sex || 'F'} ·{' '}
-                {claim?.patient?.age || 46}
-              </b>
-            </span>
-            <span>
-              Payer{' '}
-              <b style={{ color: 'var(--fg)', fontWeight: 600 }}>
-                {claim?.payer_name || 'Insurer SYN-07'}
-                {claim?.tpa_name ? ` via ${claim.tpa_name}` : ' via TPA SYN-3'}
-              </b>
-            </span>
-            <span>
-              Policy{' '}
-              <b style={{ color: 'var(--fg)', fontWeight: 600 }}>
-                {claim?.policy_number || 'POL-SYN-77120'}
-              </b>
-            </span>
-            <span>
-              Treating doctor{' '}
-              <b style={{ color: 'var(--fg)', fontWeight: 600 }}>
-                {claim?.treating_doctor || 'Dr. S. Menon'}
-              </b>
-            </span>
+            {facts.map(([label, value]) => (
+              <span key={label}>
+                {label} <b style={{ color: 'var(--fg)', fontWeight: 600 }}>{value}</b>
+              </span>
+            ))}
           </div>
         </div>
 
         <div style={{ display: 'grid', gap: '8px', justifyItems: 'end' }}>
           <div style={{ font: '800 20px var(--f-display)', textAlign: 'right' }}>
-            {formatMoney(claim?.estimated_amount ?? 148600)}
+            {claim ? formatMoney(claim.estimated_amount ?? 0) : '—'}
             <Lbl style={{ display: 'block', fontSize: '11px' }}>Estimated claim value</Lbl>
           </div>
           <div className="row" style={{ justifyContent: 'flex-end' }}>

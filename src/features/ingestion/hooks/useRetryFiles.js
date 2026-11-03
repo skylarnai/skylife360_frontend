@@ -1,31 +1,16 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
+import { useRefreshClaim } from '@/features/claims/hooks/useClaimDocuments'
 import { ingestionApi } from '../api/ingestionApi'
-import { batchQueryKey } from './useBatch'
 
 /**
- * Retry failed storage or failed text extraction for chosen files in a batch.
- * On success, updates the React Query cache for the batch and triggers a refetch.
+ * Retry failed storage or failed text reading for files of a claim.
+ * Each file belongs to one upload batch, so the call is made per batch: mutate({ batchId, fileIds }).
  */
-export function useRetryFiles(batchId) {
-  const queryClient = useQueryClient()
+export function useRetryFiles(claimId) {
+  const refreshClaim = useRefreshClaim()
 
   return useMutation({
-    mutationFn: (fileIds) => ingestionApi.retryBatch(batchId, fileIds),
-    onSuccess: (data) => {
-      if (batchId && data?.files) {
-        queryClient.setQueryData(batchQueryKey(batchId), (oldBatch) => {
-          if (!oldBatch) return oldBatch
-          return {
-            ...oldBatch,
-            ...data,
-            files: data.files,
-          }
-        })
-      }
-      if (batchId) {
-        queryClient.invalidateQueries({ queryKey: batchQueryKey(batchId) })
-      }
-    },
+    mutationFn: ({ batchId, fileIds }) => ingestionApi.retryBatch(batchId, fileIds),
+    onSuccess: () => refreshClaim(claimId),
   })
 }
-
