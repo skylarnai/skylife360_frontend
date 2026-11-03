@@ -35,7 +35,9 @@ export function ClaimDeskLayout() {
   const { claim, desk, gapsLeft, statusInfo } = useClaimDesk(claimId)
 
   if (!activeStepObj) {
-    return <Navigate to={`/claims/${claimId}/upload`} replace />
+    // A disabled step (e.g. Ask) sends the user on to the next one instead of back to the start.
+    const fallback = step === 'ask' ? 'gaps' : 'upload'
+    return <Navigate to={`/claims/${claimId}/${fallback}`} replace />
   }
 
   const StepComponent = STEP_COMPONENTS[activeStepObj.key] || UploadStep
@@ -97,7 +99,7 @@ export function ClaimDeskLayout() {
       </CardPad>
 
       <nav className="stages" aria-label="Claim steps" style={{ margin: '12px 0' }}>
-        {DESK_STEPS.map((stg) => {
+        {DESK_STEPS.map((stg, position) => {
           const isCurrent = stg.key === activeStepObj.key
           const isDone =
             statusInfo.reached[stg.index] && stg.index < activeStepObj.index
@@ -109,7 +111,7 @@ export function ClaimDeskLayout() {
               aria-current={isCurrent ? 'step' : undefined}
             >
               <b>
-                {stg.index + 1} · {stg.title}
+                {position + 1} · {stg.title}
               </b>
               <span className="sub">{stg.sub}</span>
             </Link>

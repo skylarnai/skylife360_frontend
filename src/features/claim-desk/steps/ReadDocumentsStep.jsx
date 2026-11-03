@@ -11,6 +11,7 @@ import {
   uploadErrorMessage,
 } from '@/features/ingestion/utils/fileResultView'
 import { useActivity } from '@/hooks/useActivity'
+import { ASK_STEP_ENABLED } from '../constants'
 import { useClaimDesk } from '../hooks/useClaimDesk'
 
 export function ReadDocumentsStep() {
@@ -55,8 +56,10 @@ export function ReadDocumentsStep() {
     })
   }
 
+  const nextStep = ASK_STEP_ENABLED ? 'ask' : 'gaps'
+
   const goToNextStep = () => {
-    navigate(`/claims/${claimId}/ask${batchId ? `?batch=${encodeURIComponent(batchId)}` : ''}`)
+    navigate(`/claims/${claimId}/${nextStep}${batchId ? `?batch=${encodeURIComponent(batchId)}` : ''}`)
   }
 
   if (!batchId) {
@@ -132,7 +135,7 @@ export function ReadDocumentsStep() {
 
       <div className="row">
         <Button variant="pri" onClick={goToNextStep} disabled={batchQuery.isLoading}>
-          Next: ask questions →
+          {ASK_STEP_ENABLED ? 'Next: ask questions →' : 'Next: check gaps →'}
         </Button>
       </div>
     </>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { EmptyStep } from '@/components/common/EmptyStep'
 import { Button, ErrorBox } from '@/components/ui'

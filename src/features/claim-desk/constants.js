@@ -1,4 +1,10 @@
-export const DESK_STEPS = [
+import { env } from '@/config/env'
+
+/** Ask step (RAG /rag/ask, /rag/search, /evaluation/evaluate) is hidden unless VITE_ENABLE_ASK=true. */
+export const ASK_STEP_ENABLED = env.enableAsk
+
+// `index` stays fixed (deskStatus.reached is indexed by it); hidden steps are filtered out below.
+const ALL_DESK_STEPS = [
   { key: 'upload', index: 0, title: 'Upload', sub: 'files or a ZIP' },
   { key: 'read', index: 1, title: 'Read documents', sub: 'text and scans' },
   { key: 'ask', index: 2, title: 'Ask', sub: 'questions with sources' },
@@ -6,6 +12,8 @@ export const DESK_STEPS = [
   { key: 'integrity', index: 4, title: 'Integrity', sub: 'duplicates, tampering, IDs' },
   { key: 'approve', index: 5, title: 'Approve & submit', sub: 'sign off, send to payer' },
 ]
+
+export const DESK_STEPS = ALL_DESK_STEPS.filter((s) => s.key !== 'ask' || ASK_STEP_ENABLED)
 
 export const DESK_STEP_APIS = {
   upload: [

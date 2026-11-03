@@ -1,3 +1,4 @@
+import { env } from '@/config/env'
 import { ROUTES } from './routes'
 import { isAdminRole } from './permissions'
 
@@ -32,12 +33,16 @@ export const CLINICAL_TABS = [
     to: ROUTES.DOCUMENTS,
     isActive: (pathname) => pathname.startsWith(ROUTES.DOCUMENTS),
   },
-  {
-    key: 'ask',
-    label: 'Ask about a patient',
-    to: ROUTES.ASK,
-    isActive: (pathname) => pathname.startsWith(ROUTES.ASK),
-  },
+  ...(env.enableAsk
+    ? [
+        {
+          key: 'ask',
+          label: 'Ask about a patient',
+          to: ROUTES.ASK,
+          isActive: (pathname) => pathname.startsWith(ROUTES.ASK),
+        },
+      ]
+    : []),
   {
     key: 'patients',
     label: 'Patient summary',
