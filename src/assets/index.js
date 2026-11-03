@@ -1,5 +1,7 @@
-import skyClaimsMark from './logos/sky-claims-mark.svg'
+import skylifeLogo from './logos/skylife-logo.png'
+import skylifeMark from './logos/skylife-mark.png'
 
 export const LOGOS = {
-  skyClaimsMark,
+  skylifeMark,
+  skylifeLogo,
 }
