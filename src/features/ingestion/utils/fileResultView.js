@@ -1,4 +1,4 @@
-import { getIngestionStatusInfo } from '@/constants/statusMaps'
+import { getExtractionStatusInfo, getIngestionStatusInfo } from '@/constants/statusMaps'
 
 // Mirrors the backend defaults in app/core/settings.py (upload limits).
 export const UPLOAD_ACCEPT = '.pdf,.doc,.docx,.txt,.md,.png,.jpg,.jpeg,.csv,.xls,.xlsx,.json,.zip'
@@ -118,4 +118,82 @@ export function uploadErrorMessage(error) {
       : 'Couldn’t reach the server. Check your connection and try again.'
   }
   return error.message || 'Upload failed. Please try again.'
+}
+
+/**
+ * Maps a stored file extraction summary to display values for Step 2 (Read Documents).
+ */
+export function toReadRow(file) {
+  const extraction = file.extraction || {}
+  const statusInfo = getExtractionStatusInfo(extraction.status)
+  const isFailed = statusInfo.tone === 'red'
+  const isReading = statusInfo.label === 'READING…'
+
+  const parts = []
+  if (typeof extraction.total_pages === 'number' && extraction.total_pages > 0) {
+    parts.push(extraction.total_pages + ' ' + (extraction.total_pages === 1 ? 'page' : 'pages'))
+  }
+  if (extraction.has_ocr || (extraction.ocr_pages && extraction.ocr_pages > 0)) {
+    parts.push('scanned')
+  }
+  if (typeof extraction.total_tables === 'number' && extraction.total_tables > 0) {
+    parts.push(extraction.total_tables + ' ' + (extraction.total_tables === 1 ? 'table' : 'tables'))
+  }
+
+  const pagesText = parts.length > 0 ? parts.join(' · ') : (isReading ? 'Reading…' : '—')
+
+  return {
+    id: file.file_id,
+    name: file.original_filename,
+    classificationType: extraction.classification_type || 'other',
+    pagesText,
+    chip: statusInfo.label,
+    tone: statusInfo.tone,
+    isFailed,
+    isReading,
+    canRetry: Boolean(extraction.retry_eligible ?? file.retry_eligible),
+    error: extraction.error_message || file.error_message || 'Reading timed out or could not be completed.',
+  }
+}
+
+/**
+ * Filter stored files (INGESTED and not archives) and map them for Read Documents.
+ */
+export function toReadRows(files = []) {
+  return files
+    .filter((f) => f.status === 'INGESTED' && !f.is_archive)
+    .map(toReadRow)
+}
+
+/**
+ * Computes top summary tiles for Step 2:
+ * files ready (X of Y), pages read, scanned pages, tables kept
+ */
+export function toReadTiles(files = []) {
+  const storedFiles = files.filter((f) => f.status === 'INGESTED' && !f.is_archive)
+  const total = storedFiles.length
+  const readyCount = storedFiles.filter((f) => f.extraction?.status === 'INDEXED').length
+
+  let pagesRead = 0
+  let scannedPages = 0
+  let tablesKept = 0
+
+  storedFiles.forEach((f) => {
+    const ext = f.extraction
+    if (!ext) return
+    if (typeof ext.total_pages === 'number') pagesRead += ext.total_pages
+    if (typeof ext.ocr_pages === 'number') {
+      scannedPages += ext.ocr_pages
+    } else if (ext.has_ocr) {
+      scannedPages += ext.total_pages || 1
+    }
+    if (typeof ext.total_tables === 'number') tablesKept += ext.total_tables
+  })
+
+  return [
+    { label: 'files ready', value: readyCount + ' of ' + total },
+    { label: 'pages read', value: String(pagesRead) },
+    { label: 'scanned pages', value: String(scannedPages) },
+    { label: 'tables kept', value: String(tablesKept) },
+  ]
 }

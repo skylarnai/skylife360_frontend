@@ -1,51 +1,81 @@
-import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { getDocTypeLabel, getFileStatusInfo } from '@/constants/statusMaps'
+import { useEffect } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { EmptyStep } from '@/components/common/EmptyStep'
-import { Button, Chip, Tile, TileGrid } from '@/components/ui'
-import { ingestionApi } from '@/features/ingestion/api/ingestionApi'
+import { Button, ErrorBox, Tile, TileGrid } from '@/components/ui'
+import { ExtractedFileRow } from '@/features/ingestion/components/ExtractedFileRow'
+import { useBatch } from '@/features/ingestion/hooks/useBatch'
+import { useRetryFiles } from '@/features/ingestion/hooks/useRetryFiles'
+import {
+  toReadRows,
+  toReadTiles,
+  uploadErrorMessage,
+} from '@/features/ingestion/utils/fileResultView'
 import { useActivity } from '@/hooks/useActivity'
 import { useClaimDesk } from '../hooks/useClaimDesk'
 
 export function ReadDocumentsStep() {
-  const { claimId = 'SUV-261028-01' } = useParams()
+  const { claimId } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { log } = useActivity()
   const { desk, updateDesk } = useClaimDesk(claimId)
-  const [retrying, setRetrying] = useState(false)
 
-  const anFailed = !desk.retried
+  // Batch ID from URL query ?batch= or from desk store
+  const batchId = searchParams.get('batch') || desk.batchId
+  const batchQuery = useBatch(batchId)
+  const retryMutation = useRetryFiles(batchId)
 
-  const handleRetry = async () => {
-    setRetrying(true)
-    try {
-      if (desk.batchId) {
-        await ingestionApi.retryBatch(desk.batchId, ['f-1042-04'])
-      }
-    } catch {
-      // Fallback to demo state when backend is offline
-    } finally {
-      setRetrying(false)
-      updateDesk({ retried: true })
-      log('anaesthesia_record.jpg read on the second try')
+  // Sync batchId and uploaded flag into desk store if loaded from URL
+  useEffect(() => {
+    if (batchQuery.data && desk.batchId !== batchQuery.data.batch_id) {
+      updateDesk({ uploaded: true, batchId: batchQuery.data.batch_id })
     }
+  }, [batchQuery.data, desk.batchId, updateDesk])
+
+  const files = batchQuery.data?.files || []
+  const rows = toReadRows(files)
+  const tiles = toReadTiles(files)
+
+  const handleRetryFile = (fileId, fileName) => {
+    if (!batchId || !fileId) return
+    retryMutation.mutate([fileId], {
+      onSuccess: (data) => {
+        const retriedFile = data?.files?.find((f) => f.file_id === fileId)
+        const isIndexed = retriedFile?.extraction?.status === 'INDEXED'
+        if (isIndexed) {
+          log(`${fileName} read on the second try`)
+          updateDesk({ retried: true })
+        } else {
+          log(`${fileName} still couldn't be read`)
+        }
+      },
+      onError: (err) => {
+        log(`Failed to retry reading ${fileName}: ${err.message || 'Error'}`)
+      },
+    })
   }
 
-  const extractedFiles = [
-    ['opd_consultation.pdf', 'admission', '2 pages', false],
-    ['usg_abdomen.pdf', 'lab', '1 page', false],
-    ['operation_note.pdf', 'operative', '2 pages', false],
-    ['anaesthesia_record.jpg', 'operative', '1 page · scanned', anFailed],
-    ['discharge_summary.pdf', 'discharge', '3 pages', false],
-    ['final_bill.xlsx', 'billing', '2 sheets · 2 tables', false],
-  ]
+  const goToNextStep = () => {
+    navigate(`/claims/${claimId}/ask${batchId ? `?batch=${encodeURIComponent(batchId)}` : ''}`)
+  }
 
-  const tiles = [
-    ['files ready', anFailed ? '5 of 6' : '6 of 6'],
-    ['pages read', anFailed ? '9' : '10'],
-    ['scanned pages', anFailed ? '0' : '1'],
-    ['tables kept', '2'],
-  ]
+  if (!batchId) {
+    return (
+      <>
+        <div className="between">
+          <h2 style={{ fontSize: '18px' }}>Read the documents</h2>
+          <span className="small muted">
+            Text is pulled from every file, including scans, so it can be searched
+          </span>
+        </div>
+        <EmptyStep
+          message="Nothing uploaded yet."
+          actionText="Go to step 1."
+          to={`/claims/${claimId}/upload`}
+        />
+      </>
+    )
+  }
 
   return (
     <>
@@ -56,79 +86,55 @@ export function ReadDocumentsStep() {
         </span>
       </div>
 
-      {!desk.uploaded ? (
-        <EmptyStep
-          message="Nothing uploaded yet."
-          actionText="Go to step 1."
-          to={`/claims/${claimId}/upload`}
+      {batchQuery.isError && (
+        <ErrorBox
+          message={uploadErrorMessage(batchQuery.error)}
+          onRetry={() => batchQuery.refetch()}
         />
-      ) : (
-        <>
-          <TileGrid>
-            {tiles.map(([label, value]) => (
-              <Tile key={label} label={label} value={value} />
-            ))}
-          </TileGrid>
-
-          {extractedFiles.map(([name, cls, pagesText, failed]) => {
-            const statusInfo = getFileStatusInfo(failed ? 'EXTRACTION_FAILED' : 'INDEXED')
-            return (
-              <div
-                key={name}
-                style={{
-                  border: `1px solid ${failed ? 'var(--red)' : 'var(--line)'}`,
-                  borderRadius: '8px',
-                  padding: '10px 12px',
-                }}
-              >
-                <div className="between">
-                  <div style={{ minWidth: 0 }}>
-                    <b style={{ overflowWrap: 'anywhere' }}>{name}</b>{' '}
-                    <Chip tone="teal">{getDocTypeLabel(cls).toUpperCase()}</Chip>
-                  </div>
-                  <span className="row" style={{ gap: '8px' }}>
-                    <span className="small muted">{pagesText}</span>
-                    <Chip tone={statusInfo.tone}>{statusInfo.label}</Chip>
-                  </span>
-                </div>
-
-                {failed && (
-                  <div
-                    role="status"
-                    className="row"
-                    style={{
-                      marginTop: '8px',
-                      background: 'var(--red-bg)',
-                      borderRadius: '6px',
-                      padding: '7px 10px',
-                      fontSize: '13.5px',
-                    }}
-                  >
-                    <span style={{ color: 'var(--red)', fontWeight: 600 }}>
-                      Reading the scan timed out. It can be tried again.
-                    </span>
-                    <Button
-                      size="sm"
-                      variant="warn"
-                      loading={retrying}
-                      style={{ marginLeft: 'auto' }}
-                      onClick={handleRetry}
-                    >
-                      Try again
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-
-          <div className="row">
-            <Button variant="pri" onClick={() => navigate(`/claims/${claimId}/ask`)}>
-              Next: ask questions →
-            </Button>
-          </div>
-        </>
       )}
+
+      {retryMutation.isError && (
+        <ErrorBox
+          message={uploadErrorMessage(retryMutation.error) || 'Failed to retry reading document.'}
+        />
+      )}
+
+      <TileGrid>
+        {tiles.map((tile) => (
+          <Tile
+            key={tile.label}
+            label={tile.label}
+            value={batchQuery.isLoading ? '…' : tile.value}
+          />
+        ))}
+      </TileGrid>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {batchQuery.isLoading && rows.length === 0 ? (
+          <div className="muted small" style={{ padding: '16px 0' }}>
+            Loading extracted documents…
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="muted small" style={{ padding: '16px 0' }}>
+            No verified documents found in this batch.
+          </div>
+        ) : (
+          rows.map((row) => (
+            <ExtractedFileRow
+              key={row.id}
+              row={row}
+              onRetry={handleRetryFile}
+              retrying={retryMutation.isPending}
+            />
+          ))
+        )}
+      </div>
+
+      <div className="row">
+        <Button variant="pri" onClick={goToNextStep} disabled={batchQuery.isLoading}>
+          Next: ask questions →
+        </Button>
+      </div>
     </>
   )
 }

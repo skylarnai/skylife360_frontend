@@ -69,6 +69,10 @@ export const DOC_TYPE_MAP = {
   operative: 'Operation',
   discharge: 'Discharge',
   billing: 'Billing',
+  prescription: 'Prescription',
+  identity: 'Identity',
+  insurance: 'Insurance',
+  other: 'Other',
 }
 
 export const CLAIM_STAGE_MAP = {
