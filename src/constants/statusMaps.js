@@ -6,6 +6,63 @@ export const FILE_STATUS_MAP = {
   PROCESSING: { label: 'IN PROGRESS', tone: 'teal' },
 }
 
+const UPLOAD_IN_PROGRESS = { label: 'IN PROGRESS', tone: 'teal' }
+const UPLOAD_FAILED = { label: 'FAILED', tone: 'red' }
+
+// Storage status of an uploaded file (backend FileStatus, `files[].status`)
+export const INGESTION_STATUS_MAP = {
+  INGESTED: { label: 'ACCEPTED', tone: 'ok' },
+  DUPLICATE: { label: 'DUPLICATE', tone: 'amb' },
+  REJECTED: { label: 'NOT ALLOWED', tone: 'red' },
+  UPLOAD_FAILED,
+  RETRY_PENDING: UPLOAD_FAILED,
+  METADATA_PENDING: UPLOAD_FAILED,
+  CANCELLED: UPLOAD_FAILED,
+  RECEIVED: UPLOAD_IN_PROGRESS,
+  VALIDATING: UPLOAD_IN_PROGRESS,
+  READY_TO_UPLOAD: UPLOAD_IN_PROGRESS,
+  UPLOADING: UPLOAD_IN_PROGRESS,
+  UPLOADED: UPLOAD_IN_PROGRESS,
+  VERIFYING: UPLOAD_IN_PROGRESS,
+  STORAGE_VERIFIED: UPLOAD_IN_PROGRESS,
+}
+
+const READING = { label: 'READING…', tone: 'teal' }
+const COULD_NOT_READ = { label: "COULDN'T READ", tone: 'red' }
+
+// Text-extraction status of a stored file (backend ExtractionStatus, `files[].extraction.status`)
+export const EXTRACTION_STATUS_MAP = {
+  INDEXED: { label: 'READY', tone: 'ok' },
+  EXTRACTION_FAILED: COULD_NOT_READ,
+  CLEANING_FAILED: COULD_NOT_READ,
+  CHUNKING_FAILED: COULD_NOT_READ,
+  EMBEDDING_FAILED: COULD_NOT_READ,
+  PENDING: READING,
+  EXTRACTING: READING,
+  EXTRACTED: READING,
+  CLEANING: READING,
+  CLEANED: READING,
+  CHUNKING: READING,
+  CHUNKED: READING,
+  EMBEDDING: READING,
+  EMBEDDED: READING,
+  STORING_VECTORS: READING,
+  METADATA_PENDING: READING,
+}
+
+export function getIngestionStatusInfo(status) {
+  return INGESTION_STATUS_MAP[status] || UPLOAD_IN_PROGRESS
+}
+
+export function getExtractionStatusInfo(status) {
+  return EXTRACTION_STATUS_MAP[status] || READING
+}
+
+/** True while the backend is still reading text from the file. */
+export function isExtractionInProgress(status) {
+  return getExtractionStatusInfo(status) === READING
+}
+
 export const DOC_TYPE_MAP = {
   admission: 'Admission',
   lab: 'Lab / imaging',

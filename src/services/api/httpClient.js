@@ -19,7 +19,7 @@ function requiresIdempotencyKey(method, url = '', config = {}) {
   return IDEMPOTENT_PATHS.some((segment) => url.includes(segment))
 }
 
-function generateUUID() {
+export function generateUUID() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID()
   }

@@ -31,7 +31,7 @@ export function normalizeApiError(error) {
   if (status === 403) {
     return new ApiError({
       status: 403,
-      code: detail?.code || 'FORBIDDEN',
+      code: detail?.code || detail?.error_code || 'FORBIDDEN',
       message: detail?.message || MESSAGES.ACCESS_DENIED,
       details: detail || data,
     })
@@ -40,7 +40,7 @@ export function normalizeApiError(error) {
   if (status === 409) {
     return new ApiError({
       status: 409,
-      code: detail?.code || 'STALE_VERSION',
+      code: detail?.code || detail?.error_code || 'STALE_VERSION',
       message: detail?.message || MESSAGES.STALE_VERSION,
       details: detail || data,
     })

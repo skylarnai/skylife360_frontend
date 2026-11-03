@@ -1,6 +1,6 @@
 # Ingestion API integration plan (next step after auth)
 
-| Field | Value |
+| Field | Value | 
 |---|---|
 | Scope | Claim desk step 1 **Upload** (S03.1) and step 2 **Read documents** (S03.2) |
 | Backend feature | `F001 ingestion pipeline` + `F002 RAG extraction` in `sky_life_360_dev` |
