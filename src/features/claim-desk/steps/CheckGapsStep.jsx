@@ -1,169 +1,223 @@
-import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { env } from '@/config/env'
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { EmptyStep } from '@/components/common/EmptyStep'
-import { Button, Chip, Pill } from '@/components/ui'
-import { gapsApi } from '@/features/gaps/api/gapsApi'
-import { intakeApi } from '@/features/gaps/api/intakeApi'
-import { packetsApi } from '@/features/gaps/api/packetsApi'
+import { Button, ErrorBox } from '@/components/ui'
+import { ClaimDetailsForm } from '@/features/gaps/components/ClaimDetailsForm'
+import { GapFindingList } from '@/features/gaps/components/GapFindingList'
+import { PacketCard } from '@/features/gaps/components/PacketCard'
+import { useGapRun } from '@/features/gaps/hooks/useGapRun'
+import { useIntake } from '@/features/gaps/hooks/useIntake'
+import { usePacket } from '@/features/gaps/hooks/usePacket'
+import { useRunIntake } from '@/features/gaps/hooks/useRunIntake'
+import { getIntakeFilesSummary } from '@/features/gaps/utils/intakeFiles'
+import { useBatch } from '@/features/ingestion/hooks/useBatch'
 import { useActivity } from '@/hooks/useActivity'
 import { useUiStore } from '@/store/uiStore'
-import { PROTOTYPE_GAPS } from '../constants'
 import { useClaimDesk } from '../hooks/useClaimDesk'
 
-const PACKET_JSON = `{
-  "assembly_id": "pa-41d0…",
-  "claim_id": "SUV-261028-01",
-  "gap_run_id": "run-3c1e…",
-  "target_format": "payer_json",
-  "status": "ASSEMBLED"
-}`
-
 export function CheckGapsStep() {
-  const { claimId = 'SUV-261028-01' } = useParams()
+  const { claimId } = useParams()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { log } = useActivity()
   const apiPanel = useUiStore((state) => state.apiPanel)
-  const { claim, desk, updateDesk, gapsLeft } = useClaimDesk(claimId)
-  const [running, setRunning] = useState(false)
 
-  const handleRunGaps = async () => {
-    setRunning(true)
-    try {
-      const intakeOut = await intakeApi.createIntake({
-        encounter_id: claimId,
-        claim_id: claimId,
-        user_id: claim?.user_id || 'SYN-P-1042',
-        payer_id: 'SYN-07',
-        service_date: '2026-10-09',
+  const { claim, desk, updateDesk } = useClaimDesk(claimId)
+
+  // Batch ID & Intake ID management from query params and desk state
+  const batchId = searchParams.get('batch') || desk.batchId
+  const intakeId = searchParams.get('intake') || desk.intakeId
+
+  const batchQuery = useBatch(batchId)
+  const intakeQuery = useIntake(intakeId)
+
+  const gapRunId = intakeQuery.data?.gap_run_id || desk.gapRunId
+  const packetId = intakeQuery.data?.packet_id || desk.packetId
+  const integrityRunId = intakeQuery.data?.integrity_run_id || desk.integrityRunId
+
+  const gapRunQuery = useGapRun(gapRunId)
+  const packetQuery = usePacket(packetId)
+  const runIntakeMutation = useRunIntake()
+
+  // Eligible files summary for intake
+  const docSummary = getIntakeFilesSummary(batchQuery.data?.files)
+
+  // Synchronize desk state when an existing intake is loaded
+  useEffect(() => {
+    if (intakeQuery.data) {
+      updateDesk({
+        gapsRun: true,
+        intakeId: intakeQuery.data.intake_id,
+        gapRunId: intakeQuery.data.gap_run_id,
+        packetId: intakeQuery.data.packet_id,
+        integrityRunId: intakeQuery.data.integrity_run_id,
       })
-      if (intakeOut?.intake_id) {
-        updateDesk({
-          intakeId: intakeOut.intake_id,
-          gapRunId: intakeOut.gap_run_id || desk.gapRunId,
-          packetId: intakeOut.packet_id || desk.packetId,
-          integrityRunId: intakeOut.integrity_run_id || desk.integrityRunId,
+    }
+  }, [intakeQuery.data, updateDesk])
+
+  // Synchronize gapsCount when gap findings are fetched
+  useEffect(() => {
+    if (gapRunQuery.data) {
+      const soft = gapRunQuery.data.soft_gaps ?? 0
+      const hard = gapRunQuery.data.hard_rejections ?? 0
+      updateDesk({ gapsCount: soft + hard })
+    }
+  }, [gapRunQuery.data, updateDesk])
+
+  // Form state
+  const [formData, setFormData] = useState({
+    encounter_id: claimId,
+    claim_id: claimId,
+    user_id: claim?.user_id || 'SYN-P-1042',
+    payer_id: claim?.payer_id || 'SYN-07',
+    payer_name: claim?.payer_name || 'Insurer SYN-07',
+    service_date: claim?.service_date || '2026-10-09',
+    subscriber: {
+      member_id: claim?.policy_number || 'POL-SYN-77120',
+      first_name: claim?.patient?.first_name || 'Sunita',
+      last_name: claim?.patient?.last_name || 'Menon',
+      birth_date: claim?.patient?.birth_date || '1980-04-02',
+      gender: claim?.patient?.sex || 'F',
+    },
+    provider: {
+      provider_id: claim?.provider_id || 'HOSP-0042',
+      name: claim?.provider_name || 'Metro Multi-Speciality Hospital',
+      id_qualifier: 'PI',
+    },
+    consent: {
+      processing: true,
+      training: false,
+      reference: `CONSENT-${claimId || '001'}`,
+    },
+  })
+
+  // Keep form in sync when claim finishes loading
+  useEffect(() => {
+    if (claim) {
+      setFormData((prev) => ({
+        ...prev,
+        user_id: claim.user_id || prev.user_id,
+        payer_id: claim.payer_id || prev.payer_id,
+        payer_name: claim.payer_name || prev.payer_name,
+        subscriber: {
+          ...prev.subscriber,
+          member_id: claim.policy_number || prev.subscriber.member_id,
+          gender: claim.patient?.sex || prev.subscriber.gender,
+        },
+      }))
+    }
+  }, [claim])
+
+  const handleRunGaps = () => {
+    if (!docSummary.isReady) return
+
+    const payload = {
+      ...formData,
+      encounter_id: claimId,
+      claim_id: claimId,
+      user_id: claim?.user_id || formData.user_id,
+      file_ids: docSummary.fileIds,
+    }
+
+    runIntakeMutation.runIntake(payload, {
+      onSuccess: (data) => {
+        setSearchParams((params) => {
+          params.set('intake', data.intake_id)
+          return params
         })
-      }
-    } catch {
-      // Fallback to prototype gap check results when backend is offline
-    } finally {
-      setRunning(false)
-      updateDesk({ gapsRun: true })
-      log('ran the gap check: 3 to fix, claim packet built')
-    }
+        updateDesk({
+          gapsRun: true,
+          intakeId: data.intake_id,
+          gapRunId: data.gap_run_id,
+          packetId: data.packet_id,
+          integrityRunId: data.integrity_run_id,
+        })
+        log(`ran gap check: intake ${data.intake_id} created`)
+      },
+    })
   }
 
-  const handleDownloadPacket = async () => {
-    try {
-      const res = await packetsApi.getDownloadLink(desk.packetId)
-      if (res?.url) window.open(res.url, '_blank', 'noopener,noreferrer')
-    } catch {
-      log('requested claim packet download link')
-    }
+  const goToIntegrity = () => {
+    const params = new URLSearchParams()
+    if (batchId) params.set('batch', batchId)
+    if (intakeId || desk.intakeId) params.set('intake', intakeId || desk.intakeId)
+    const qs = params.toString() ? `?${params.toString()}` : ''
+    navigate(`/claims/${claimId}/integrity${qs}`)
   }
 
-  const handleDownloadGapReport = async () => {
-    try {
-      const res = await gapsApi.getReportLink(desk.gapRunId)
-      if (res?.url) window.open(res.url, '_blank', 'noopener,noreferrer')
-    } catch {
-      log('requested gap report download link')
-    }
-  }
+  const isGapsFinished = Boolean(desk.gapsRun || intakeId)
 
   return (
     <>
       <div className="between">
         <h2 style={{ fontSize: '18px' }}>Check gaps against payer rules</h2>
-        <span className="small muted">Insurer SYN-07 rules in force on 9 Oct</span>
+        <span className="small muted">
+          {formData.payer_name ? `${formData.payer_name} rules` : 'Rules check'}
+        </span>
       </div>
 
-      {!desk.uploaded ? (
+      {!desk.uploaded && !batchId ? (
         <EmptyStep
           message="Nothing uploaded yet."
           actionText="Go to step 1."
           to={`/claims/${claimId}/upload`}
         />
-      ) : !desk.gapsRun ? (
-        <>
-          <div className="muted">
-            Checks the documents against the payer’s rules, the disease registry and the hospital
-            tariff, then builds the claim packet.
-          </div>
-          <div className="row">
-            <Button variant="acc" loading={running} onClick={handleRunGaps}>
-              Run gap check
-            </Button>
-          </div>
-        </>
       ) : (
         <>
-          <div className="row" style={{ gap: '6px' }}>
-            <Pill tone="ok">Nothing blocks this claim</Pill>
-            <Pill tone="amb">{gapsLeft} to fix</Pill>
-            <Pill tone="teal">2 passed</Pill>
-          </div>
+          {runIntakeMutation.isError && (
+            <ErrorBox
+              message={runIntakeMutation.error?.message || 'Gap check could not be completed.'}
+              onRetry={handleRunGaps}
+              retryLabel="Try again"
+            />
+          )}
 
-          {PROTOTYPE_GAPS.map(([label, tone, title, desc, source]) => (
-            <div
-              key={title}
-              style={{
-                border: '1px solid var(--line)',
-                borderRadius: '8px',
-                padding: '9px 12px',
-                display: 'flex',
-                gap: '8px',
-                alignItems: 'flex-start',
-              }}
-            >
-              <Chip tone={tone}>{label}</Chip>
-              <div style={{ display: 'grid', gap: '2px', minWidth: 0 }}>
-                <b style={{ fontSize: '14.5px' }}>{title}</b>
-                <span className="small muted">{desc}</span>
-                <span
-                  className="mono"
-                  style={{ fontSize: '11.5px', color: 'var(--teal)', overflowWrap: 'anywhere' }}
+          {!isGapsFinished ? (
+            <ClaimDetailsForm
+              formData={formData}
+              onChange={setFormData}
+              onSubmit={handleRunGaps}
+              loading={runIntakeMutation.isPending}
+              docSummary={docSummary}
+            />
+          ) : (
+            <>
+              {gapRunQuery.isLoading && (
+                <div className="muted small" style={{ padding: '12px 0' }}>
+                  Evaluating payer rules and building gap dossier…
+                </div>
+              )}
+
+              {gapRunQuery.data && (
+                <GapFindingList
+                  gapRun={gapRunQuery.data}
+                  identityCheck={intakeQuery.data?.identity_check}
+                />
+              )}
+
+              {packetQuery.data && (
+                <PacketCard
+                  packet={packetQuery.data}
+                  gapRunId={gapRunId}
+                  apiPanel={apiPanel}
+                />
+              )}
+
+              <div className="row" style={{ gap: '8px', marginTop: '12px' }}>
+                <Button variant="pri" onClick={goToIntegrity}>
+                  Next: integrity check →
+                </Button>
+                <Button
+                  onClick={() => {
+                    updateDesk({ gapsRun: false })
+                    runIntakeMutation.startNewRun()
+                  }}
                 >
-                  source: {source}
-                </span>
+                  ↺ Edit claim details and re-run
+                </Button>
               </div>
-            </div>
-          ))}
-
-          <div
-            style={{
-              border: '1px solid var(--line)',
-              borderRadius: '8px',
-              padding: '10px 12px',
-              display: 'grid',
-              gap: '8px',
-            }}
-          >
-            <div className="between">
-              <b style={{ font: '700 14.5px var(--f-display)' }}>Claim packet</b>
-              <Chip tone="ok">READY</Chip>
-            </div>
-            <div className="small muted">
-              Payer format: Insurer SYN-07 JSON · 6 attachments · clinical summary needs a quick
-              human read.
-            </div>
-            <div className="row">
-              <Button size="sm" onClick={handleDownloadPacket}>
-                Download packet
-              </Button>
-              <Button size="sm" onClick={handleDownloadGapReport}>
-                Download gap report
-              </Button>
-            </div>
-            {env.showApiPanel && apiPanel && <pre className="code">{PACKET_JSON}</pre>}
-          </div>
-
-          <div className="row">
-            <Button variant="pri" onClick={() => navigate(`/claims/${claimId}/integrity`)}>
-              Next: integrity check →
-            </Button>
-          </div>
+            </>
+          )}
         </>
       )}
     </>

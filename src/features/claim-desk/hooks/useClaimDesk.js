@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 import { useQuery } from '@tanstack/react-query'
 import { claimsApi } from '@/features/claims/api/claimsApi'
-import { PROTOTYPE_GAPS } from '../constants'
 import { deskStatus } from '../utils/deskStatus'
 
 export const useDeskStore = create((set) => ({
@@ -18,10 +17,11 @@ export const useDeskStore = create((set) => ({
   submitted: false,
   batchId: null,
   intakeId: null,
-  packetId: 'pa-41d0',
-  gapRunId: 'run-3c1e',
-  integrityRunId: 'int-9a2b',
+  packetId: null,
+  gapRunId: null,
+  integrityRunId: null,
   reviewTaskId: 'tsk-7f10',
+  gapsCount: null, // real soft + hard gaps count from latest run
 
   updateDesk: (partial) => set((state) => ({ ...state, ...partial })),
   resetDesk: () =>
@@ -37,6 +37,12 @@ export const useDeskStore = create((set) => ({
       note: '',
       err: '',
       submitted: false,
+      batchId: null,
+      intakeId: null,
+      packetId: null,
+      gapRunId: null,
+      integrityRunId: null,
+      gapsCount: null,
     }),
 }))
 
@@ -47,7 +53,9 @@ export function useClaimDesk(claimId = 'SUV-261028-01') {
     queryFn: () => claimsApi.getClaimById(claimId),
   })
 
-  const gapsLeft = PROTOTYPE_GAPS.filter((g) => g[1] === 'amb').length
+  // Derive gapsLeft from real gaps count if available, otherwise default to 0
+  const gapsLeft = typeof desk.gapsCount === 'number' ? desk.gapsCount : 0
+
   const statusInfo = deskStatus({
     uploaded: desk.uploaded,
     retried: desk.retried,

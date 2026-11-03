@@ -13,10 +13,18 @@ export const intakeApi = {
   /**
    * POST /api/v1/claims/intake (READY)
    * Runs facts -> gaps -> packet -> queues integrity -> review
+   * Takes optional idempotencyKey to prevent duplicate runs
    */
-  async createIntake(payload) {
+  async createIntake(payload, idempotencyKey) {
+    const headers = {}
+    if (idempotencyKey) {
+      headers['Idempotency-Key'] = idempotencyKey
+    }
+
     const { data } = await httpClient.post('/claims/intake', payload, {
+      headers,
       idempotent: true,
+      timeout: 300_000,
     })
     return data
   },
@@ -26,7 +34,7 @@ export const intakeApi = {
    * Live pipeline status (packet, integrity run, review task, submission)
    */
   async getIntake(intakeId) {
-    const { data } = await httpClient.get(`/claims/intake/${intakeId}`)
+    const { data } = await httpClient.get(`/claims/intake/${encodeURIComponent(intakeId)}`)
     return data
   },
 }
