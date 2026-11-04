@@ -78,16 +78,76 @@ This guide provides the complete context, API contracts, security mechanics, and
     "password": "CorrectHorseBatteryStaple123!"
   }
   ```
-* **Response**: Returns `LoginResponse` (same JSON structure as above) and sets the `sc_session` cookie.
-  * If `mfa_required: true`, the frontend prompts for a 6-digit TOTP code and calls `POST /api/v1/auth/mfa/verify`.
+* **Response**: Returns `LoginResponse`.
+  * When `mfa_required: false`: returns user profile and sets the `sc_session` HttpOnly cookie.
+  * When `mfa_required: true`: returns `{ "mfa_required": true, "mfa_token": "...", "dev_otp": "123456" }`. No session cookie is issued until verified.
 
-#### 2. Get Current Authenticated Profile (`/me`)
+#### 2. Multi-Factor Authentication (MFA / 2FA) & Automated Agent Verification
+* **Triggered When**: User has `mfa_enabled: true` OR belongs to an MFA-enforced role (`SUPER_ADMIN`, `ADMIN`).
+* **Verification Endpoint**: `POST /api/v1/auth/mfa/verify`
+* **Request Body**:
+  ```json
+  {
+    "mfa_token": "<mfa_token_from_login_or_redirect>",
+    "code": "123456"
+  }
+  ```
+* **Success Response `200 OK`**:
+  ```json
+  {
+    "user": { "id": "...", "email": "...", "name": "...", "role": "ADMIN", "tenant_id": "HOSP-001" },
+    "role": "ADMIN",
+    "permissions": [...],
+    "csrf_token": "..."
+  }
+  ```
+  *(Header: `Set-Cookie: sc_session=<token>; HttpOnly; SameSite=Lax; Path=/`)*
+
+##### How Frontend / Automated Agent Fetches OTP Without Human Intervention
+In `development` and `test` environments (`APP_ENV=development`), the backend provides **3 automated zero-friction channels** to obtain the verification code:
+
+1. **Direct API Endpoint (Recommended for Frontend Agent & E2E Tests)**:
+   * **Endpoint**: `GET /api/v1/auth/mfa/dev-code?mfa_token=<mfa_token>`
+   * **Response `200 OK`**:
+     ```json
+     {
+       "mfa_token": "eyJhbGciOi...",
+       "code": "829471",
+       "email": "doctor@hospital.org",
+       "expires_in_seconds": 30
+     }
+     ```
+   * The frontend agent can simply call this endpoint right after receiving `mfa_token` to retrieve `code`, then immediately dispatch `POST /api/v1/auth/mfa/verify`.
+
+2. **Inline Response Parameter (`dev_otp`)**:
+   * For Password Sign-In (`POST /api/v1/auth/login`) and Google SPA token verify (`POST /api/v1/auth/oauth/google/verify`), the JSON payload directly includes:
+     ```json
+     {
+       "mfa_required": true,
+       "mfa_token": "eyJhbGciOi...",
+       "dev_otp": "829471"
+     }
+     ```
+   * For Google OAuth 302 Redirect: The redirect location automatically contains both parameters in the fragment:
+     `http://127.0.0.1:5173/login/mfa#mfa_token=...&dev_otp=829471`
+
+3. **Live Terminal Console Print**:
+   * The backend terminal running Uvicorn flushes the OTP code directly to console stdout:
+     ```
+     ============================================================
+     [auth] DEV_MODE MFA REQUIRED for doctor@hospital.org:
+       >> Live 6-digit OTP code : 829471
+       >> mfa_token             : eyJhbGciOi...
+     ============================================================
+     ```
+
+#### 3. Get Current Authenticated Profile (`/me`)
 * **Endpoint**: `GET /api/v1/auth/me`
 * **Headers**: `credentials: "include"`
 * **Response `200 OK`**: Returns current `{ user, role, permissions, csrf_token }`. Call this on application boot to restore logged-in state.
 * **Response `401 Unauthorized`**: No active session $\rightarrow$ redirect user to `/login`.
 
-#### 3. Sign Out
+#### 4. Sign Out
 * **Endpoint**: `POST /api/v1/auth/logout`
 * **Headers**:
   - `X-CSRF-Token: <csrf_token>`

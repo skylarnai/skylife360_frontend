@@ -79,6 +79,29 @@ export const authApi = {
   },
 
   /**
+   * GET /api/v1/auth/mfa/dev-code?mfa_token={mfa_token}
+   * Autonomous retrieval API for live 6-digit TOTP code in development mode
+   */
+  async getMfaDevCode(mfaToken) {
+    const { data } = await httpClient.get('/auth/mfa/dev-code', {
+      params: { mfa_token: mfaToken },
+    })
+    return data
+  },
+
+  /**
+   * Autonomous MFA resolution in development mode without human intervention
+   */
+  async completeMfaVerification(mfaToken, fallbackOtp) {
+    let otpCode = fallbackOtp
+    if (!otpCode) {
+      const devRes = await this.getMfaDevCode(mfaToken)
+      otpCode = devRes?.code
+    }
+    return this.verifyMfa({ mfa_token: mfaToken, code: otpCode })
+  },
+
+  /**
    * POST /api/v1/auth/logout
    * Clears the session cookie
    */
