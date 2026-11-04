@@ -6,5 +6,6 @@ export const env = {
   // Ask (RAG answers) needs an LLM on the backend; off until one is configured.
   enableAsk: String(import.meta.env.VITE_ENABLE_ASK).toLowerCase() === 'true',
   showApiPanel: String(import.meta.env.VITE_SHOW_API_PANEL).toLowerCase() === 'true',
+  defaultTenantId: import.meta.env.VITE_DEFAULT_TENANT_ID || 'HOSP-001',
 }
 

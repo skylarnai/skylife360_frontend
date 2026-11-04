@@ -1,4 +1,5 @@
 import { httpClient } from '@/services/api/httpClient'
+import { env } from '@/config/env'
 
 export const authApi = {
   /**
@@ -7,6 +8,49 @@ export const authApi = {
    */
   async me() {
     const { data } = await httpClient.get('/auth/me')
+    return data
+  },
+
+  /**
+   * GET /api/v1/auth/oauth/google/login?tenant_id={tenant_id} (JSON Mode)
+   * Fetches Google OAuth authorization consent URL
+   */
+  async getGoogleAuthUrl(tenantId) {
+    const targetTenant = tenantId || env.defaultTenantId || 'HOSP-001'
+    const { data } = await httpClient.get('/auth/oauth/google/login', {
+      params: { tenant_id: targetTenant },
+      headers: {
+        Accept: 'application/json',
+      },
+    })
+    return data?.auth_url
+  },
+
+  /**
+   * Builds direct Google OAuth redirect URL
+   */
+  getGoogleLoginUrl(tenantId) {
+    const targetTenant = encodeURIComponent(tenantId || env.defaultTenantId || 'HOSP-001')
+    const base = env.apiBaseUrl || (typeof window !== 'undefined' ? '' : env.proxyTarget)
+    return `${base}${env.apiPrefix}/auth/oauth/google/login?tenant_id=${targetTenant}`
+  },
+
+  /**
+   * Triggers full-page browser redirection to Google OAuth consent screen
+   */
+  loginWithGoogle(tenantId) {
+    window.location.href = this.getGoogleLoginUrl(tenantId)
+  },
+
+  /**
+   * POST /api/v1/auth/oauth/google/verify
+   * Verify Google ID token for SPA popup / one-tap flows
+   */
+  async verifyGoogleToken(payload) {
+    const { data } = await httpClient.post('/auth/oauth/google/verify', {
+      id_token: payload.id_token,
+      tenant_id: payload.tenant_id || env.defaultTenantId || 'HOSP-001',
+    })
     return data
   },
 
