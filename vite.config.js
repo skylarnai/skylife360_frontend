@@ -13,6 +13,7 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 5173,
+      host: '0.0.0.0',
       // Calls to /api go to the FastAPI backend in dev, so no CORS setup is needed.
       // Temporary: the proxy adds the backend API key server-side so it never reaches the
       // browser. Remove once the backend auth module (session cookie) exists.

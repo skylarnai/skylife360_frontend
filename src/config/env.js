@@ -4,5 +4,6 @@ export const env = {
   proxyTarget: import.meta.env.VITE_PROXY_TARGET || 'http://127.0.0.1:8000',
   apiPrefix: import.meta.env.VITE_API_PREFIX || '/api/v1',
   showApiPanel: String(import.meta.env.VITE_SHOW_API_PANEL).toLowerCase() === 'true',
+  defaultTenantId: import.meta.env.VITE_DEFAULT_TENANT_ID || 'HOSP-001',
 }
 

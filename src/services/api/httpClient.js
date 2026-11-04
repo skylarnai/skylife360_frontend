@@ -64,14 +64,55 @@ httpClient.interceptors.request.use((config) => {
   }
 
   config.headers = headers
+
+  const upperMethod = method.toUpperCase()
+  const fullUrl = `${config.baseURL || ''}${config.url || ''}`
+  console.log(
+    `%c[API Request] ${upperMethod} ${fullUrl}`,
+    'color: #1C84B0; font-weight: 600;',
+    {
+      url: fullUrl,
+      method: upperMethod,
+      params: config.params,
+      data: config.data,
+      headers: config.headers,
+    }
+  )
+
   return config
 })
 
 httpClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const upperMethod = String(response.config?.method || 'get').toUpperCase()
+    const fullUrl = `${response.config?.baseURL || ''}${response.config?.url || ''}`
+    console.log(
+      `%c[API Response] ${response.status} ${upperMethod} ${fullUrl}`,
+      'color: #17663F; font-weight: 600;',
+      {
+        status: response.status,
+        data: response.data,
+      }
+    )
+    return response
+  },
   (error) => {
     const apiError = normalizeApiError(error)
     const requestUrl = error?.config?.url || ''
+    const upperMethod = String(error?.config?.method || 'get').toUpperCase()
+    const fullUrl = `${error?.config?.baseURL || ''}${requestUrl}`
+
+    console.error(
+      `%c[API Error] ${apiError.status || 'ERR'} ${upperMethod} ${fullUrl}`,
+      'color: #9A2C26; font-weight: 600;',
+      {
+        status: apiError.status,
+        code: apiError.code,
+        message: apiError.message,
+        details: apiError.details,
+      }
+    )
+
     // A 401 from login / MFA / password endpoints means bad credentials or code, not an
     // expired session. Only /auth/me (and every non-auth call) should end the session.
     const isAuthFlowEndpoint = requestUrl.includes('/auth/') && !requestUrl.includes('/auth/me')
