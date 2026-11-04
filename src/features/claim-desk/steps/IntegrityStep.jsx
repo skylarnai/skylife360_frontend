@@ -1,38 +1,100 @@
-import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { env } from '@/config/env'
-import { getIntegrityFlagInfo } from '@/constants/statusMaps'
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { EmptyStep } from '@/components/common/EmptyStep'
-import { Button, Chip, Note, Pill } from '@/components/ui'
+import { Button, ErrorBox, Note } from '@/components/ui'
+import { useIntake } from '@/features/gaps/hooks/useIntake'
 import { integrityApi } from '@/features/integrity/api/integrityApi'
+import { IntegrityCheckRow } from '@/features/integrity/components/IntegrityCheckRow'
+import { IntegritySummaryPills } from '@/features/integrity/components/IntegritySummaryPills'
+import { useIntegrityRun } from '@/features/integrity/hooks/useIntegrityRun'
 import { useActivity } from '@/hooks/useActivity'
 import { useUiStore } from '@/store/uiStore'
-import { PROTOTYPE_INTEGRITY } from '../constants'
 import { useClaimDesk } from '../hooks/useClaimDesk'
 
 export function IntegrityStep() {
-  const { claimId = 'SUV-261028-01' } = useParams()
+  const { claimId } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { log } = useActivity()
   const apiPanel = useUiStore((state) => state.apiPanel)
-  const { desk, updateDesk } = useClaimDesk(claimId)
-  const [running, setRunning] = useState(false)
 
+  const { desk, updateDesk } = useClaimDesk(claimId)
+
+  // Retrieve batch, intake, or explicit integrity run ID from URL or desk store
+  const batchId = searchParams.get('batch') || desk.batchId
+  const intakeId = searchParams.get('intake') || desk.intakeId
+
+  const intakeQuery = useIntake(intakeId)
+
+  // Use integrity_run_id from intake if present, or fallback to desk store
+  const runId = intakeQuery.data?.integrity_run_id || desk.integrityRunId
+  const packetId = intakeQuery.data?.packet_id || desk.packetId
+
+  const integrityRunQuery = useIntegrityRun(runId)
+  const [runningManual, setRunningManual] = useState(false)
+  const [manualError, setManualError] = useState('')
+
+  // Sync integrity state into desk when run finishes
+  useEffect(() => {
+    if (integrityRunQuery.data?.status === 'COMPLETED') {
+      updateDesk({ integrityRun: true })
+    }
+  }, [integrityRunQuery.data?.status, updateDesk])
+
+  // Fallback manual run (only needed if intake didn't auto-queue a run)
   const handleRunIntegrity = async () => {
-    setRunning(true)
+    if (!packetId) return
+    setRunningManual(true)
+    setManualError('')
     try {
-      const res = await integrityApi.requestCheck(desk.packetId)
+      const res = await integrityApi.requestCheck(packetId)
       if (res?.run_id) {
         updateDesk({ integrityRunId: res.run_id })
+        log(`started integrity check run ${res.run_id}`)
       }
-    } catch {
-      // Fallback to prototype integrity results when backend is offline
+    } catch (err) {
+      setManualError(err?.message || 'Failed to start integrity check.')
     } finally {
-      setRunning(false)
-      updateDesk({ integrityRun: true })
-      log('ran the integrity check: 5 passed, 1 to check')
+      setRunningManual(false)
     }
   }
+
+  const goToApprove = () => {
+    const params = new URLSearchParams()
+    if (batchId) params.set('batch', batchId)
+    if (intakeId) params.set('intake', intakeId)
+    const qs = params.toString() ? `?${params.toString()}` : ''
+    navigate(`/claims/${claimId}/approve${qs}`)
+  }
+
+  // Guard: Step 4 must have a packet built first
+  const hasPacket = Boolean(packetId || desk.packetId || desk.gapsRun)
+
+  if (!hasPacket && !runId) {
+    return (
+      <>
+        <div className="between">
+          <h2 style={{ fontSize: '18px' }}>Integrity check</h2>
+          <span className="small muted">Runs on the claim packet</span>
+        </div>
+        <Note tone="plum">
+          Visible to admins only. Doctors and staff only see that a claim is on hold.
+        </Note>
+        <EmptyStep
+          message="Build the claim packet first."
+          actionText="Go to step 3."
+          to={`/claims/${claimId}/gaps${batchId ? `?batch=${encodeURIComponent(batchId)}` : ''}`}
+        />
+      </>
+    )
+  }
+
+  const runData = integrityRunQuery.data
+  const isBusy = runData?.status === 'QUEUED' || runData?.status === 'PROCESSING'
+  const isCompleted = runData?.status === 'COMPLETED'
+  const isFailedSystem = runData?.status === 'FAILED_SYSTEM'
+  const checks = runData?.checks || []
+  const degradedCount = runData?.degraded_checks ?? 0
 
   return (
     <>
@@ -45,68 +107,103 @@ export function IntegrityStep() {
         Visible to admins only. Doctors and staff only see that a claim is on hold.
       </Note>
 
-      {!desk.gapsRun ? (
-        <EmptyStep
-          message="Build the claim packet first."
-          actionText="Go to step 4."
-          to={`/claims/${claimId}/gaps`}
-        />
-      ) : !desk.integrityRun ? (
-        <>
-          <div className="muted">
+      {/* When no run has been started yet (e.g. manual fallback) */}
+      {!runId && (
+        <div
+          style={{
+            border: '1px solid var(--line)',
+            borderRadius: '8px',
+            padding: '16px',
+            background: 'var(--panel)',
+            display: 'grid',
+            gap: '12px',
+          }}
+        >
+          <div className="muted small">
             Looks for duplicate or resubmitted claims, pre-existing conditions, edited documents,
-            invalid IDs and unusual bills.
+            invalid IDs, and abnormal billing.
           </div>
+          {manualError && <ErrorBox message={manualError} />}
           <div className="row">
-            <Button variant="acc" loading={running} onClick={handleRunIntegrity}>
+            <Button variant="acc" loading={runningManual} onClick={handleRunIntegrity}>
               Run integrity check
             </Button>
           </div>
-        </>
-      ) : (
+        </div>
+      )}
+
+      {/* Polling / Processing State */}
+      {runId && (isBusy || (integrityRunQuery.isLoading && !runData)) && (
+        <div
+          style={{
+            border: '1px solid var(--line)',
+            borderRadius: '8px',
+            padding: '24px',
+            background: 'var(--panel)',
+            textAlign: 'center',
+            display: 'grid',
+            gap: '8px',
+            placeItems: 'center',
+          }}
+        >
+          <div className="row" style={{ gap: '10px' }}>
+            <span className="spinner" />
+            <b style={{ fontSize: '15px' }}>Checking claim integrity…</b>
+          </div>
+          <span className="small muted">
+            Inspecting file forensics, duplicate claim registries, and billing tariffs. Usually takes
+            under a minute.
+          </span>
+        </div>
+      )}
+
+      {/* System Error State */}
+      {isFailedSystem && (
+        <ErrorBox
+          message="The integrity check could not finish due to a system error."
+          onRetry={handleRunIntegrity}
+          retryLabel="Run again"
+        />
+      )}
+
+      {/* Query Error */}
+      {integrityRunQuery.isError && (
+        <ErrorBox
+          message={integrityRunQuery.error?.message || 'Could not fetch integrity check results.'}
+          onRetry={() => integrityRunQuery.refetch()}
+        />
+      )}
+
+      {/* Completed State */}
+      {isCompleted && (
         <>
-          <div className="row" style={{ gap: '6px' }}>
-            <Pill tone="ok">5 passed</Pill>
-            <Pill tone="amb">1 to check</Pill>
-            <Pill tone="grey">0 failed</Pill>
+          <IntegritySummaryPills checks={checks} />
+
+          {degradedCount > 0 && (
+            <Note>
+              {degradedCount} {degradedCount === 1 ? 'check' : 'checks'} ran with limited data.
+            </Note>
+          )}
+
+          <div style={{ display: 'grid', gap: '8px' }}>
+            {checks.length === 0 ? (
+              <div className="small muted" style={{ padding: '8px 0' }}>
+                No anomaly checks were generated for this packet.
+              </div>
+            ) : (
+              checks.map((check, idx) => (
+                <IntegrityCheckRow
+                  key={check.check_type || idx}
+                  check={check}
+                  apiPanel={apiPanel}
+                />
+              ))
+            )}
           </div>
 
-          {PROTOTYPE_INTEGRITY.map(([code, flag, title, summary]) => {
-            const flagInfo = getIntegrityFlagInfo(flag)
-            return (
-              <div
-                key={code}
-                className="row"
-                style={{
-                  border: '1px solid var(--line)',
-                  borderRadius: '8px',
-                  padding: '9px 12px',
-                  alignItems: 'flex-start',
-                  gap: '6px 12px',
-                }}
-              >
-                <Chip tone={flagInfo.tone}>{flagInfo.label}</Chip>
-                <div
-                  style={{
-                    display: 'grid',
-                    gap: '2px',
-                    flex: '1 1 320px',
-                    minWidth: 0,
-                  }}
-                >
-                  <b style={{ fontSize: '14.5px' }}>{title}</b>
-                  <span className="small muted">{summary}</span>
-                </div>
-                {env.showApiPanel && apiPanel && (
-                  <span className="mono small muted">{code}</span>
-                )}
-              </div>
-            )
-          })}
-
-          <div className="row">
-            <Button variant="pri" onClick={() => navigate(`/claims/${claimId}/approve`)}>
-              Next: approve &amp; submit →
+          <div className="row" style={{ marginTop: '8px' }}>
+            <Button variant="pri" onClick={goToApprove}>
+              Next: approve & submit →
             </Button>
           </div>
         </>
