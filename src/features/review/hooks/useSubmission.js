@@ -3,17 +3,21 @@ import { submissionsApi } from '../api/submissionsApi'
 
 const POLL_INTERVAL_MS = 3000
 
+// Backend statuses (f006 submission/status.py): QUEUED -> DISPATCHING -> SUBMITTED,
+// with RETRY_SCHEDULED between attempts. PAYER_REJECTED and DEAD_LETTERED are final.
+export const SUBMISSION_BUSY_STATUSES = ['QUEUED', 'DISPATCHING', 'RETRY_SCHEDULED']
+
 function isSubmissionBusy(submission) {
   if (!submission) return false
-  const status = submission.status?.toUpperCase()
-  return status === 'QUEUED' || status === 'DISPATCHING'
+  return SUBMISSION_BUSY_STATUSES.includes(String(submission.status || '').toUpperCase())
 }
 
 export const submissionQueryKey = (submissionId) => ['claim-submission', submissionId]
 
 /**
- * Loads and polls a Claim Submission until final state (SUBMITTED or FAILED).
- * Also provides mutations for creating a submission and requeueing.
+ * Loads and polls a Claim Submission until it reaches a final state
+ * (SUBMITTED, PAYER_REJECTED or DEAD_LETTERED).
+ * Also provides mutations for creating a submission and requeueing a dead-lettered one.
  */
 export function useSubmission(submissionId) {
   const queryClient = useQueryClient()
@@ -35,7 +39,7 @@ export function useSubmission(submissionId) {
   })
 
   const requeueMutation = useMutation({
-    mutationFn: (subId) => submissionsApi.requeue(subId || submissionId),
+    mutationFn: ({ submissionId: subId, reason }) => submissionsApi.requeue(subId || submissionId, reason),
     onSuccess: () => {
       if (submissionId) {
         queryClient.invalidateQueries({ queryKey: submissionQueryKey(submissionId) })
@@ -52,6 +56,6 @@ export function useSubmission(submissionId) {
     submitError: submitMutation.error,
     requeue: requeueMutation.mutate,
     isRequeueing: requeueMutation.isPending,
+    requeueError: requeueMutation.error,
   }
 }
-

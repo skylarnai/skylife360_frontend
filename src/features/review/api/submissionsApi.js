@@ -25,9 +25,10 @@ export const submissionsApi = {
 
   /**
    * POST /api/v1/claims/submissions/{submission_id}/requeue (READY)
+   * { reason } (required, 1-2000 chars) · only DEAD_LETTERED submissions · 202
    */
-  async requeue(submissionId) {
-    const { data } = await httpClient.post(`/claims/submissions/${submissionId}/requeue`)
+  async requeue(submissionId, reason) {
+    const { data } = await httpClient.post(`/claims/submissions/${submissionId}/requeue`, { reason })
     return data
   },
 

@@ -23,7 +23,8 @@ export const useDeskStore = create((set) => ({
   packetId: null,
   gapRunId: null,
   integrityRunId: null,
-  reviewTaskId: 'tsk-7f10',
+  reviewTaskId: null, // from POST /reviews or the intake pipeline view
+  submissionId: null, // from the decision's hand-off or POST /claims/submissions
   gapsCount: null, // real soft + hard gaps count from latest run
 
   updateDesk: (partial) => set((state) => ({ ...state, ...partial })),
@@ -46,6 +47,8 @@ export const useDeskStore = create((set) => ({
       packetId: null,
       gapRunId: null,
       integrityRunId: null,
+      reviewTaskId: null,
+      submissionId: null,
       gapsCount: null,
     }),
 }))

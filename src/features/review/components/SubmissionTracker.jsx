@@ -1,36 +1,51 @@
-import { Button, Pill } from '@/components/ui'
+import { useState } from 'react'
+import { Button, ErrorBox, Pill } from '@/components/ui'
 
 const STAGES = [
   { key: 'QUEUED', label: 'Queued' },
-  { key: 'DISPATCHING', label: 'Dispatching' },
-  { key: 'SUBMITTED', label: 'Received by Payer' },
+  { key: 'DISPATCHING', label: 'Sending' },
+  { key: 'SUBMITTED', label: 'Received by payer' },
 ]
 
+// Backend statuses (f006 submission/status.py)
+const STAGE_INDEX = {
+  QUEUED: 0,
+  DISPATCHING: 1,
+  RETRY_SCHEDULED: 1,
+  SUBMITTED: 2,
+}
+
+function formatTime(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleTimeString()
+}
+
 /**
- * Visual Progress Stepper for Claim Submissions (APP-05).
- * Shows QUEUED -> DISPATCHING -> SUBMITTED with payer reference.
+ * Submission progress (APP-05): QUEUED -> DISPATCHING (-> RETRY_SCHEDULED) -> SUBMITTED.
+ * PAYER_REJECTED: the payer refused the claim (final, no requeue).
+ * DEAD_LETTERED: every attempt failed; the only state the backend lets you requeue (with a reason).
  */
-export function SubmissionTracker({ submission, payerName = 'TPA', onRequeue, isRequeueing = false }) {
+export function SubmissionTracker({
+  submission,
+  payerName = 'the payer',
+  onRequeue,
+  isRequeueing = false,
+  requeueError = null,
+}) {
+  const [reason, setReason] = useState('')
+
   if (!submission) return null
 
-  const currentStatus = (submission.status || 'QUEUED').toUpperCase()
-  const isFailed = currentStatus === 'FAILED'
+  const currentStatus = String(submission.status || 'QUEUED').toUpperCase()
   const isSubmitted = currentStatus === 'SUBMITTED'
+  const isPayerRejected = currentStatus === 'PAYER_REJECTED'
+  const isDeadLettered = currentStatus === 'DEAD_LETTERED'
+  const isRetrying = currentStatus === 'RETRY_SCHEDULED'
+  const isFailed = isPayerRejected || isDeadLettered
+  const activeIdx = STAGE_INDEX[currentStatus] ?? 0
 
-  const getStageIndex = (status) => {
-    switch (status) {
-      case 'QUEUED':
-        return 0
-      case 'DISPATCHING':
-        return 1
-      case 'SUBMITTED':
-        return 2
-      default:
-        return 0
-    }
-  }
-
-  const activeIdx = getStageIndex(currentStatus)
+  const pillTone = isSubmitted ? 'ok' : isFailed ? 'red' : isRetrying ? 'amb' : 'teal'
 
   return (
     <div
@@ -44,13 +59,10 @@ export function SubmissionTracker({ submission, payerName = 'TPA', onRequeue, is
       }}
     >
       <div className="between" style={{ alignItems: 'center' }}>
-        <b style={{ fontSize: '15px' }}>Submission Tracker</b>
-        <Pill tone={isSubmitted ? 'ok' : isFailed ? 'red' : 'teal'}>
-          {submission.status_label || currentStatus}
-        </Pill>
+        <b style={{ fontSize: '15px' }}>Submission</b>
+        <Pill tone={pillTone}>{submission.status_label || currentStatus}</Pill>
       </div>
 
-      {/* 3-Step Flow */}
       <div
         style={{
           display: 'grid',
@@ -60,8 +72,8 @@ export function SubmissionTracker({ submission, payerName = 'TPA', onRequeue, is
         }}
       >
         {STAGES.map((stg, idx) => {
-          const isDone = !isFailed && activeIdx > idx
-          const isCurrent = !isFailed && activeIdx === idx
+          const isDone = !isFailed && (activeIdx > idx || (isSubmitted && idx === 2))
+          const isCurrent = !isFailed && !isSubmitted && activeIdx === idx
           const label = idx === 2 ? `Received by ${payerName}` : stg.label
 
           return (
@@ -72,11 +84,7 @@ export function SubmissionTracker({ submission, payerName = 'TPA', onRequeue, is
                 borderRadius: '6px',
                 fontSize: '13px',
                 fontWeight: 600,
-                background: isDone
-                  ? 'var(--soft)'
-                  : isCurrent
-                  ? 'var(--tint)'
-                  : 'var(--surface)',
+                background: isDone ? 'var(--soft)' : isCurrent ? 'var(--tint)' : 'var(--surface)',
                 border: `1px solid ${isCurrent ? 'var(--accent)' : 'var(--line)'}`,
                 color: isDone ? 'var(--ok)' : isCurrent ? 'var(--accent)' : 'var(--muted)',
               }}
@@ -88,24 +96,57 @@ export function SubmissionTracker({ submission, payerName = 'TPA', onRequeue, is
         })}
       </div>
 
+      <div className="small muted">
+        Attempt {submission.attempt_count ?? 0} of {submission.max_attempts ?? '–'}
+        {isRetrying && submission.next_attempt_at
+          ? ` · next try at ${formatTime(submission.next_attempt_at)}`
+          : ''}
+        {submission.last_error_code && !isSubmitted ? ` · last error: ${submission.last_error_code}` : ''}
+      </div>
+
       {isSubmitted && (
         <div className="small muted">
-          Payer reference: <b>{submission.payer_reference || submission.submission_id}</b>.
-          If the payer returns any queries or rejection, it will appear in your worklist.
+          Payer reference: <b>{submission.payer_claim_reference || submission.submission_id}</b>. If the payer
+          returns any queries or a rejection, it will appear in your worklist.
         </div>
       )}
 
-      {isFailed && (
-        <div className="row" style={{ gap: '10px', alignItems: 'center' }}>
+      {isPayerRejected && (
+        <div style={{ color: 'var(--red)', fontSize: '13.5px' }}>
+          {payerName} rejected this claim
+          {submission.last_error_code ? ` (${submission.last_error_code})` : ''}. It cannot be resent as is.
+        </div>
+      )}
+
+      {isDeadLettered && (
+        <div style={{ display: 'grid', gap: '8px' }}>
           <span style={{ color: 'var(--red)', fontSize: '13.5px' }}>
-            Submission dispatch failed: {submission.error_message || 'Timeout or network refusal.'}
+            Sending failed after every attempt
+            {submission.last_error_code ? ` (${submission.last_error_code})` : ''}. Give a reason to try again.
           </span>
-          <Button size="sm" variant="warn" loading={isRequeueing} onClick={onRequeue}>
-            Requeue dispatch
-          </Button>
+          <textarea
+            className="input"
+            rows={2}
+            maxLength={2000}
+            value={reason}
+            disabled={isRequeueing}
+            placeholder="e.g., Payer endpoint was down; confirmed back up with the TPA."
+            onChange={(e) => setReason(e.target.value)}
+          />
+          <div className="row">
+            <Button
+              size="sm"
+              variant="warn"
+              loading={isRequeueing}
+              disabled={!reason.trim() || isRequeueing}
+              onClick={() => onRequeue?.(reason.trim())}
+            >
+              Requeue
+            </Button>
+          </div>
+          {requeueError && <ErrorBox message={requeueError.message || 'Requeue failed.'} />}
         </div>
       )}
     </div>
   )
 }
-

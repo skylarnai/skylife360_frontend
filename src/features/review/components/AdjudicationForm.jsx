@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Button, ErrorBox, Note } from '@/components/ui'
+import { getIntegrityCheckLabel } from '@/features/integrity/utils/integrityTypes'
+import { getReviewCodeLabel } from '../utils/reviewLabels'
 
 const DECISION_OPTIONS = [
   { value: 'APPROVED', label: 'Approve' },
@@ -9,22 +11,43 @@ const DECISION_OPTIONS = [
 
 /**
  * Adjudication Form (APP-04)
- * Allows the claims admin to choose a decision, validates mandatory rationale,
- * and submits with optimistic version protection.
+ * Everything comes from the review task (GET /reviews/{task_id}):
+ *   blockers            no one may approve over these (backend: 409 APPROVAL_BLOCKED)
+ *   flags               approving over them needs a rationale (400 MISSING_RATIONALE)
+ *   integrity_checks    only false_positive_eligible ones may be sent as false_positive_checks
+ *   rationale_min_chars the backend's minimum
+ * integrityPending: stage INTEGRITY_REVIEW, approvals wait for an integrity clearance.
  */
 export function AdjudicationForm({
-  hasBlockers = false,
-  integrityWarnings = [],
+  blockers = [],
+  flags = [],
+  integrityChecks = [],
+  minChars = 10,
+  integrityPending = false,
   onSubmit,
   loading = false,
   error = null,
 }) {
-  const [selectedDecision, setSelectedDecision] = useState(hasBlockers ? 'REJECTED' : '')
+  const hasBlockers = blockers.length > 0
+  const approvalsLocked = hasBlockers || integrityPending
+  const eligibleFalsePositives = integrityChecks.filter((c) => c.false_positive_eligible)
+
+  const [selectedDecision, setSelectedDecision] = useState(approvalsLocked ? 'REJECTED' : '')
   const [rationale, setRationale] = useState('')
   const [validationError, setValidationError] = useState('')
 
+  // The backend needs a rationale to approve over flags, to mark false positives, and to reject a
+  // claim it recommends approving. We ask for one on every rejection so the hospital knows what to fix.
   const requiresRationale =
-    selectedDecision === 'FALSE_POSITIVE' || selectedDecision === 'REJECTED'
+    selectedDecision === 'FALSE_POSITIVE' ||
+    selectedDecision === 'REJECTED' ||
+    (selectedDecision === 'APPROVED' && flags.length > 0)
+
+  const isOptionDisabled = (value) => {
+    if (value === 'REJECTED') return false
+    if (approvalsLocked) return true
+    return value === 'FALSE_POSITIVE' && eligibleFalsePositives.length === 0
+  }
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -34,28 +57,24 @@ export function AdjudicationForm({
       setValidationError('Choose a decision.')
       return
     }
-
-    if (hasBlockers && selectedDecision !== 'REJECTED') {
-      setValidationError('Claims with blocking issues cannot be approved. Send back to the hospital.')
+    if (isOptionDisabled(selectedDecision)) {
+      setValidationError('This decision is not available for this claim.')
       return
     }
 
     const trimmedRationale = rationale.trim()
-    if (requiresRationale && trimmedRationale.length < 10) {
-      setValidationError('Add a short reason (at least 10 characters).')
+    if (requiresRationale && trimmedRationale.length < minChars) {
+      setValidationError(`Add a short reason (at least ${minChars} characters).`)
       return
     }
 
-    const falsePositiveChecks =
-      selectedDecision === 'FALSE_POSITIVE'
-        ? integrityWarnings.map((w) => w.check_type).filter(Boolean)
-        : []
-
     onSubmit?.({
       decision: selectedDecision,
-      rationale: trimmedRationale,
-      false_positive_checks: falsePositiveChecks,
-      gap_report_recipients: selectedDecision === 'REJECTED' ? ['Dr. S. Menon'] : [],
+      rationale: trimmedRationale || null,
+      false_positive_checks:
+        selectedDecision === 'FALSE_POSITIVE' ? eligibleFalsePositives.map((c) => c.check_type) : [],
+      // Empty: the backend sends the gap report to the packet's own hospital user.
+      gap_report_recipients: [],
     })
   }
 
@@ -75,9 +94,7 @@ export function AdjudicationForm({
 
       <div style={{ display: 'grid', gap: '8px' }}>
         {DECISION_OPTIONS.map((opt) => {
-          const isApprove = opt.value === 'APPROVED' || opt.value === 'FALSE_POSITIVE'
-          const isDisabled = hasBlockers && isApprove
-
+          const isDisabled = isOptionDisabled(opt.value)
           return (
             <label
               key={opt.value}
@@ -108,16 +125,32 @@ export function AdjudicationForm({
 
       {hasBlockers && (
         <Note tone="red">
-          This claim has blocking issues. Approvals are disabled until the hospital fixes them.
+          This claim cannot be approved: {blockers.map(getReviewCodeLabel).join('; ')}.
+        </Note>
+      )}
+
+      {!hasBlockers && integrityPending && (
+        <Note tone="plum">Approval opens once the integrity flags are cleared.</Note>
+      )}
+
+      {selectedDecision === 'APPROVED' && flags.length > 0 && (
+        <Note>You are approving over: {flags.map(getReviewCodeLabel).join('; ')}.</Note>
+      )}
+
+      {selectedDecision === 'FALSE_POSITIVE' && eligibleFalsePositives.length > 0 && (
+        <Note>
+          These warnings will be recorded as false alarms:{' '}
+          {eligibleFalsePositives.map((c) => getIntegrityCheckLabel(c.check_type)).join(', ')}.
         </Note>
       )}
 
       {requiresRationale && (
         <div className="field">
-          <label className="small muted">
+          <label className="small muted" htmlFor="adjudicationReason">
             Reason (required when you override a warning or send the claim back) *
           </label>
           <textarea
+            id="adjudicationReason"
             className="input"
             rows={3}
             required
@@ -143,4 +176,3 @@ export function AdjudicationForm({
     </form>
   )
 }
-

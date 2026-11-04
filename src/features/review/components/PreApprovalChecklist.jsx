@@ -1,4 +1,6 @@
 import { Chip } from '@/components/ui'
+import { getIntegrityCheckLabel } from '@/features/integrity/utils/integrityTypes'
+import { getReviewCodeLabel } from '../utils/reviewLabels'
 
 function ChecklistDot({ tone, symbol, text }) {
   return (
@@ -26,18 +28,22 @@ function ChecklistDot({ tone, symbol, text }) {
 
 /**
  * Pre-approval checklist (APP-03)
- * Dynamic review aggregating real document count, open gaps, blockers, and integrity flags.
+ * Document counts come from the batch; gaps, blockers, flags and integrity results come from
+ * the review task (GET /reviews/{task_id}), the same assessment the backend enforces.
  */
 export function PreApprovalChecklist({
   verifiedDocCount = 0,
   totalDocCount = 0,
-  softGaps = [],
-  hardRejections = 0,
-  integrityWarnings = [],
+  softGapCount = 0,
+  blockers = [],
+  flags = [],
+  integrityChecks = [],
 }) {
-  const hasBlockers = hardRejections > 0
-  const softCount = softGaps.length
+  const hasBlockers = blockers.length > 0
+  const softCount = softGapCount
+  const integrityWarnings = integrityChecks.filter((c) => c.result_flag !== 'PASS')
   const integrityCount = integrityWarnings.length
+  const otherFlags = flags.filter((f) => f !== 'GAP_SOFT_GAPS')
 
   const allDocsRead = totalDocCount > 0 && verifiedDocCount >= totalDocCount
 
@@ -71,7 +77,7 @@ export function PreApprovalChecklist({
           <ChecklistDot
             tone="amb"
             symbol="!"
-            text={`${softCount} to fix: ${softGaps.slice(0, 3).join(', ')}${softCount > 3 ? '…' : ''}`}
+            text={`${softCount} open rule ${softCount === 1 ? 'gap' : 'gaps'} to fix`}
           />
         ) : (
           <ChecklistDot tone="ok" symbol="✓" text="No open rule gaps" />
@@ -82,18 +88,29 @@ export function PreApprovalChecklist({
           <ChecklistDot
             tone="red"
             symbol="✕"
-            text={`${hardRejections} blocking ${hardRejections === 1 ? 'issue' : 'issues'} found`}
+            text={`Blocking: ${blockers.map(getReviewCodeLabel).join('; ')}`}
           />
         ) : (
           <ChecklistDot tone="ok" symbol="✓" text="Nothing blocks this claim" />
         )}
 
-        {/* Integrity warnings */}
-        {integrityCount > 0 ? (
+        {/* Other flags that need a reason to approve over */}
+        {otherFlags.length > 0 && (
           <ChecklistDot
             tone="amb"
             symbol="!"
-            text={`Integrity: ${integrityCount} ${integrityCount === 1 ? 'warning' : 'warnings'} (${integrityWarnings.map((w) => w.check_type || 'flag').join(', ')})`}
+            text={`Needs a reason to approve: ${otherFlags.map(getReviewCodeLabel).join('; ')}`}
+          />
+        )}
+
+        {/* Integrity warnings */}
+        {integrityCount > 0 ? (
+          <ChecklistDot
+            tone={integrityWarnings.some((w) => w.result_flag === 'HARD_FAIL') ? 'red' : 'amb'}
+            symbol="!"
+            text={`Integrity: ${integrityCount} ${integrityCount === 1 ? 'finding' : 'findings'} (${integrityWarnings
+              .map((w) => getIntegrityCheckLabel(w.check_type) + (w.degraded ? ', limited data' : ''))
+              .join('; ')})`}
           />
         ) : (
           <ChecklistDot tone="ok" symbol="✓" text="Integrity checks passed" />
