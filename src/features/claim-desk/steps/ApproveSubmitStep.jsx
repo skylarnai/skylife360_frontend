@@ -1,108 +1,161 @@
-import { useState } from 'react'
-import { useParams } from 'react-router-dom'
-import { env } from '@/config/env'
+import { useEffect, useState } from 'react'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { EmptyStep } from '@/components/common/EmptyStep'
-import { Button, Chip, ErrorBox, Pill } from '@/components/ui'
-import { reviewsApi } from '@/features/review/api/reviewsApi'
-import { submissionsApi } from '@/features/review/api/submissionsApi'
+import { Button, ErrorBox, Pill } from '@/components/ui'
+import { useGapRun } from '@/features/gaps/hooks/useGapRun'
+import { useIntake } from '@/features/gaps/hooks/useIntake'
+import { useBatch } from '@/features/ingestion/hooks/useBatch'
+import { useIntegrityRun } from '@/features/integrity/hooks/useIntegrityRun'
+import { AdjudicationForm } from '@/features/review/components/AdjudicationForm'
+import { PreApprovalChecklist } from '@/features/review/components/PreApprovalChecklist'
+import { SubmissionTracker } from '@/features/review/components/SubmissionTracker'
+import { useReviewTask } from '@/features/review/hooks/useReviewTask'
+import { useSubmission } from '@/features/review/hooks/useSubmission'
 import { useActivity } from '@/hooks/useActivity'
 import { useSession } from '@/hooks/useSession'
-import { useUiStore } from '@/store/uiStore'
-import { PROTOTYPE_GAPS } from '../constants'
 import { useClaimDesk } from '../hooks/useClaimDesk'
 
-const DECISIONS = [
-  ['APPROVED', 'Approve'],
-  ['FALSE_POSITIVE', 'Approve · the integrity warning is a false alarm'],
-  ['REJECTED', 'Send back to the hospital'],
-]
-
-function ChecklistDot({ tone, symbol, text }) {
-  return (
-    <div className="row" style={{ gap: '8px', fontSize: '14px', flexWrap: 'nowrap' }}>
-      <Chip
-        tone={tone}
-        style={{
-          borderRadius: '50%',
-          width: '20px',
-          height: '20px',
-          padding: 0,
-          display: 'inline-grid',
-          placeItems: 'center',
-        }}
-      >
-        {symbol}
-      </Chip>
-      <span>{text}</span>
-    </div>
-  )
-}
-
 export function ApproveSubmitStep() {
-  const { claimId = 'SUV-261028-01' } = useParams()
+  const { claimId } = useParams()
+  const [searchParams] = useSearchParams()
   const { user } = useSession()
   const { log } = useActivity()
-  const apiPanel = useUiStore((state) => state.apiPanel)
-  const { desk, updateDesk } = useClaimDesk(claimId)
-  const [submittingDecision, setSubmittingDecision] = useState(false)
-  const [submittingClaim, setSubmittingClaim] = useState(false)
+  const { claim, desk, updateDesk } = useClaimDesk(claimId)
 
-  const gapNames = PROTOTYPE_GAPS.filter((g) => g[1] === 'amb').map((g) => g[2].toLowerCase())
+  // Retrieve batch and intake IDs from URL searchParams or desk state
+  const batchId = searchParams.get('batch') || desk.batchId
+  const intakeId = searchParams.get('intake') || desk.intakeId
+
+  // Live queries across the previous steps
+  const intakeQuery = useIntake(intakeId)
+  const batchQuery = useBatch(batchId)
+
+  const gapRunId = intakeQuery.data?.gap_run_id || desk.gapRunId
+  const integrityRunId = intakeQuery.data?.integrity_run_id || desk.integrityRunId
+  const packetId = intakeQuery.data?.packet_id || desk.packetId
+
+  const gapRunQuery = useGapRun(gapRunId)
+  const integrityRunQuery = useIntegrityRun(integrityRunId)
+
+  // Read task_id & submission_id from intake pipeline
+  const pipeline = intakeQuery.data?.pipeline || {}
+  const reviewTaskId =
+    pipeline.review?.task_id || desk.reviewTaskId || (intakeQuery.data ? `tsk-${intakeId?.slice(-6)}` : null)
+  const [activeSubmissionId, setActiveSubmissionId] = useState(
+    pipeline.submission?.submission_id || null
+  )
+
+  const {
+    task,
+    isLoading: isLoadingTask,
+    openTask,
+    isOpeningTask,
+    adjudicateAsync,
+    isAdjudicating,
+    adjudicateError,
+  } = useReviewTask(reviewTaskId)
+
+  const {
+    submission,
+    createSubmissionAsync,
+    isSubmitting,
+    submitError,
+    requeue,
+    isRequeueing,
+  } = useSubmission(activeSubmissionId)
+
+  // Auto-open review task if packet exists and task is not yet created
+  useEffect(() => {
+    if (packetId && !reviewTaskId && !isLoadingTask && !isOpeningTask) {
+      openTask(packetId)
+    }
+  }, [packetId, reviewTaskId, isLoadingTask, isOpeningTask, openTask])
+
+  // Extract checklist metrics from real step data
+  const files = batchQuery.data?.files || []
+  const verifiedDocCount = files.filter(
+    (f) => f.status === 'INGESTED' && !f.is_archive && f.extraction?.status === 'INDEXED'
+  ).length
+  const totalDocCount = files.filter((f) => !f.is_archive).length
+
+  const gapFindings = gapRunQuery.data?.findings || []
+  const softGaps = gapFindings
+    .filter((f) => f.gap_type === 'soft' || f.action !== 'reject')
+    .map((f) => f.description || f.rule_key)
+  const hardRejections =
+    (gapRunQuery.data?.hard_rejections ?? 0) +
+    gapFindings.filter((f) => f.gap_type === 'hard' || f.action === 'reject').length
+
+  const checks = integrityRunQuery.data?.checks || []
+  const integrityWarnings = checks.filter((c) => c.result_flag === 'SOFT_WARN')
+
   const reviewerName = user?.name || 'A. Rao'
+  const payerName = claim?.payer_name || 'TPA SYN-3'
 
-  const handleConfirmDecision = async () => {
-    const trimmedNote = (desk.note || '').trim()
-    if (!desk.pick) {
-      updateDesk({ err: 'Choose a decision.' })
-      return
-    }
-    if (desk.pick !== 'APPROVED' && trimmedNote.length < 10) {
-      updateDesk({ err: 'Add a short reason (at least 10 characters).' })
-      return
-    }
-
-    setSubmittingDecision(true)
+  // Confirm Decision handler
+  const handleConfirmDecision = async ({ decision, rationale, false_positive_checks, gap_report_recipients }) => {
     try {
-      await reviewsApi.adjudicate(desk.reviewTaskId, {
-        version: 1,
-        decision: desk.pick,
-        rationale: trimmedNote,
-        false_positive_checks: desk.pick === 'FALSE_POSITIVE' ? ['TAMPERING'] : [],
-        gap_report_recipients: desk.pick === 'REJECTED' ? ['Dr. S. Menon'] : [],
+      await adjudicateAsync({
+        taskId: reviewTaskId,
+        payload: {
+          version: task?.version || 1,
+          decision,
+          rationale,
+          false_positive_checks,
+          gap_report_recipients,
+        },
       })
-    } catch {
-      // Fallback to prototype decision state when backend is offline
-    } finally {
-      setSubmittingDecision(false)
-      updateDesk({
-        err: '',
-        note: trimmedNote,
-        decision: desk.pick,
-      })
+      updateDesk({ decision, note: rationale })
       log(
-        desk.pick === 'REJECTED'
-          ? 'sent the claim back to the hospital'
-          : `approved the claim${
-              desk.pick === 'FALSE_POSITIVE'
-                ? ' (integrity warning marked false alarm)'
-                : ''
-            }`
+        decision === 'FALSE_POSITIVE'
+          ? 'approved the claim (integrity warning marked false alarm)'
+          : decision === 'APPROVED'
+          ? 'approved the claim'
+          : 'sent the claim back to the hospital'
       )
+    } catch {
+      // Error handled by adjudicateError
     }
   }
 
-  const handleSubmitClaim = async () => {
-    setSubmittingClaim(true)
+  // Submit to Payer handler
+  const handleSubmitToPayer = async () => {
+    if (!packetId) return
     try {
-      await submissionsApi.createSubmission(desk.packetId)
+      const res = await createSubmissionAsync(packetId)
+      if (res?.submission_id) {
+        setActiveSubmissionId(res.submission_id)
+        updateDesk({ submitted: true })
+        log(`submitted the claim to ${payerName}`)
+      }
     } catch {
-      // Fallback to prototype submission state when backend is offline
-    } finally {
-      setSubmittingClaim(false)
-      updateDesk({ submitted: true })
-      log('submitted the claim to TPA SYN-3')
+      // Error handled by submitError
     }
   }
+
+  // Guard: Must complete prior steps
+  const hasIntegrityCompleted =
+    desk.integrityRun || integrityRunQuery.data?.status === 'COMPLETED' || Boolean(packetId)
+
+  if (!hasIntegrityCompleted && !intakeId) {
+    return (
+      <>
+        <div className="between">
+          <h2 style={{ fontSize: '18px' }}>Approve and submit</h2>
+          <span className="small muted">
+            A person signs off every claim before it goes to the payer
+          </span>
+        </div>
+        <EmptyStep
+          message="Run the integrity check first."
+          actionText="Go to step 4."
+          to={`/claims/${claimId}/integrity${batchId ? `?batch=${encodeURIComponent(batchId)}` : ''}`}
+        />
+      </>
+    )
+  }
+
+  const currentDecision = desk.decision || task?.decision
 
   return (
     <>
@@ -113,172 +166,97 @@ export function ApproveSubmitStep() {
         </span>
       </div>
 
-      {!desk.integrityRun ? (
-        <EmptyStep
-          message="Run the integrity check first."
-          actionText="Go to step 5."
-          to={`/claims/${claimId}/integrity`}
-        />
-      ) : (
+      {/* Before decision is finalized */}
+      {!currentDecision ? (
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-            gap: '12px',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gap: '16px',
+            alignItems: 'start',
           }}
         >
-          <div
-            style={{
-              border: '1px solid var(--line)',
-              borderRadius: '8px',
-              padding: '12px',
-              display: 'grid',
-              gap: '8px',
-              alignContent: 'start',
-            }}
-          >
-            <b style={{ font: '700 14.5px var(--f-display)' }}>Before you approve</b>
-            <ChecklistDot tone="ok" symbol="✓" text="6 of 6 documents read" />
-            <ChecklistDot
-              tone={gapNames.length ? 'amb' : 'ok'}
-              symbol={gapNames.length ? '!' : '✓'}
-              text={
-                gapNames.length
-                  ? `${gapNames.length} to fix: ${gapNames.join(', ')}`
-                  : 'No gaps left to fix'
-              }
-            />
-            <ChecklistDot tone="ok" symbol="✓" text="Nothing blocks this claim" />
-            <ChecklistDot
-              tone="amb"
-              symbol="!"
-              text="Integrity: 1 warning (document tampering)"
-            />
-          </div>
+          <PreApprovalChecklist
+            verifiedDocCount={verifiedDocCount}
+            totalDocCount={totalDocCount}
+            softGaps={softGaps}
+            hardRejections={hardRejections}
+            integrityWarnings={integrityWarnings}
+          />
 
+          <AdjudicationForm
+            hasBlockers={hardRejections > 0}
+            integrityWarnings={integrityWarnings}
+            onSubmit={handleConfirmDecision}
+            loading={isAdjudicating}
+            error={adjudicateError}
+          />
+        </div>
+      ) : (
+        /* After Decision has been confirmed */
+        <div style={{ display: 'grid', gap: '16px' }}>
           <div
             style={{
               border: '1px solid var(--line)',
               borderRadius: '8px',
-              padding: '12px',
+              padding: '16px',
+              background: 'var(--panel)',
               display: 'grid',
               gap: '10px',
-              alignContent: 'start',
             }}
           >
-            {!desk.decision ? (
-              <>
-                <div className="field">
-                  Decision
-                  <div style={{ display: 'grid', gap: '6px' }}>
-                    {DECISIONS.map(([value, label]) => (
-                      <label
-                        key={value}
-                        className="row"
-                        style={{
-                          gap: '8px',
-                          color: 'var(--fg)',
-                          fontSize: '14px',
-                          flexWrap: 'nowrap',
-                        }}
-                      >
-                        <input
-                          type="radio"
-                          name="dec"
-                          value={value}
-                          checked={desk.pick === value}
-                          onChange={(e) => updateDesk({ pick: e.target.value })}
-                          style={{ width: 'auto', minHeight: 'auto' }}
-                        />
-                        {label}
-                      </label>
-                    ))}
-                  </div>
-                </div>
+            <div className="row" style={{ gap: '10px', alignItems: 'center' }}>
+              <Pill tone={currentDecision === 'REJECTED' ? 'red' : 'ok'}>
+                {currentDecision === 'FALSE_POSITIVE'
+                  ? `Approved by ${reviewerName} · integrity warning marked as a false alarm`
+                  : currentDecision === 'APPROVED'
+                  ? `Approved by ${reviewerName}`
+                  : `Sent back by ${reviewerName}`}
+              </Pill>
+            </div>
 
-                <label className="field" htmlFor="rationale">
-                  Reason (required when you override a warning or send the claim back)
-                  <textarea
-                    id="rationale"
-                    rows={3}
-                    placeholder="e.g. Image was rotated by the records team; histopathology to follow, insurer accepts it after discharge."
-                    value={desk.note}
-                    onChange={(e) => updateDesk({ note: e.target.value })}
-                  />
-                </label>
-
-                {desk.err ? <ErrorBox message={desk.err} /> : null}
-
-                <Button
-                  variant="pri"
-                  loading={submittingDecision}
-                  onClick={handleConfirmDecision}
-                >
-                  Confirm decision
-                </Button>
-              </>
-            ) : desk.decision === 'REJECTED' ? (
-              <>
-                <Pill
-                  tone="red"
-                  style={{ borderRadius: '6px', padding: '9px 11px', fontSize: '14px' }}
-                >
-                  Sent back by {reviewerName}. A gap report was shared with Dr. S. Menon.
-                </Pill>
-                <div className="small muted">Reason: {desk.note}</div>
-                <Button
-                  onClick={() => updateDesk({ decision: null, pick: null, err: '' })}
-                >
-                  Reopen review
-                </Button>
-              </>
-            ) : (
-              <>
-                <Pill
-                  tone="ok"
-                  style={{ borderRadius: '6px', padding: '9px 11px', fontSize: '14px' }}
-                >
-                  Approved by {reviewerName}
-                  {desk.decision === 'FALSE_POSITIVE'
-                    ? ' · integrity warning marked as a false alarm'
-                    : ''}
-                  .
-                </Pill>
-                {desk.note && <div className="small muted">Reason: {desk.note}</div>}
-
-                {!desk.submitted ? (
-                  <Button
-                    variant="acc"
-                    loading={submittingClaim}
-                    onClick={handleSubmitClaim}
-                  >
-                    Submit to TPA SYN-3
-                  </Button>
-                ) : (
-                  <>
-                    <div className="flow">
-                      {[
-                        ['QUEUED', 'Queued'],
-                        ['DISPATCHING', 'Sending'],
-                        ['SUBMITTED', 'Received by TPA SYN-3'],
-                      ].map(([code, label], idx) => (
-                        <div key={code} className={idx < 2 ? 'on' : 'cur'}>
-                          <b style={{ fontSize: '13px' }}>{label}</b>
-                          {env.showApiPanel && apiPanel && (
-                            <span className="mono small muted">{code}</span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="small muted">
-                      Payer reference SYN3-CLM-88214. If the payer rejects it, it comes back here
-                      with their reasons.
-                    </div>
-                  </>
-                )}
-              </>
+            {desk.note && (
+              <div className="small muted" style={{ fontSize: '13.5px' }}>
+                <b>Reason:</b> {desk.note}
+              </div>
             )}
+
+            {currentDecision !== 'REJECTED' && !activeSubmissionId && (
+              <div className="row" style={{ marginTop: '6px' }}>
+                <Button
+                  variant="acc"
+                  loading={isSubmitting}
+                  onClick={handleSubmitToPayer}
+                >
+                  Submit to {payerName}
+                </Button>
+              </div>
+            )}
+
+            {submitError && <ErrorBox message={submitError.message || 'Submission failed.'} />}
           </div>
+
+          {/* Submission Tracker once submitted */}
+          {activeSubmissionId && (
+            <SubmissionTracker
+              submission={submission}
+              payerName={payerName}
+              onRequeue={() => requeue(activeSubmissionId)}
+              isRequeueing={isRequeueing}
+            />
+          )}
+
+          {currentDecision === 'REJECTED' && (
+            <div className="row">
+              <Button
+                onClick={() => {
+                  updateDesk({ decision: null, note: '' })
+                }}
+              >
+                ↺ Reopen review
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </>
