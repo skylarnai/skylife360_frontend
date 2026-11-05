@@ -105,8 +105,13 @@ export const authApi = {
    * POST /api/v1/auth/logout
    * Clears the session cookie
    */
-  async logout() {
-    await httpClient.post('/auth/logout')
+  async logout(csrfToken) {
+    // csrfToken: pass it when the session isn't in the store yet (e.g. undoing a just-made login)
+    await httpClient.post(
+      '/auth/logout',
+      null,
+      csrfToken ? { headers: { 'X-CSRF-Token': csrfToken } } : undefined,
+    )
   },
 
   /**

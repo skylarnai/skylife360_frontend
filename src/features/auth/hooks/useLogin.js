@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { MESSAGES } from '@/constants/messages'
+import { ApiError } from '@/services/api/apiError'
 import { isAdminRole } from '@/constants/permissions'
 import { getLandingRoute, ROUTES } from '@/constants/routes'
 import { authApi } from '@/services/auth/authApi'
@@ -21,11 +22,28 @@ export function mapAuthErrorMessage(error) {
   if (error.status === 401 || error.code === 'INVALID_CREDENTIALS') {
     return 'Email or password is incorrect.'
   }
+  if (error.code === 'ROLE_MISMATCH') {
+    return error.message
+  }
   if (error.status === 0 || error.code === 'NETWORK_ERROR') {
     return MESSAGES.NETWORK_ERROR
   }
   return error.message || MESSAGES.GENERIC_ERROR
 }
+
+const ROLE_LABEL = { admin: 'Admin', doctor: 'Doctor / Staff' }
+
+function roleMismatch(email, actual) {
+  const label = ROLE_LABEL[actual]
+  return new ApiError({
+    status: 403,
+    code: 'ROLE_MISMATCH',
+    message: `${email} is ${actual === 'admin' ? 'an' : 'a'} ${label} account. Pick “${label}” above, or use a matching account.`,
+  })
+}
+
+// Admin-only screens a Doctor / Staff user must never be sent to after sign-in
+const ADMIN_ONLY_PREFIXES = ['/claims', '/users']
 
 export function useLogin() {
   const navigate = useNavigate()
@@ -37,7 +55,25 @@ export function useLogin() {
   const logActivity = useUiStore((state) => state.logActivity)
 
   return useMutation({
-    mutationFn: (credentials) => authApi.login(credentials),
+    mutationFn: async ({ expectedRole, ...credentials }) => {
+      const result = await authApi.login(credentials)
+      if (!expectedRole) return result
+
+      // MFA is only required for admin accounts.
+      if (result?.mfa_required) {
+        if (expectedRole !== 'admin') throw roleMismatch(credentials.email, 'admin')
+        return result
+      }
+
+      const sessionData = result?.user ? result : await authApi.me()
+      const actual = isAdminRole(sessionData.role) ? 'admin' : 'doctor'
+      if (actual !== expectedRole) {
+        // Undo the session the server just created, then explain.
+        await authApi.logout(sessionData.csrf_token).catch(() => {})
+        throw roleMismatch(credentials.email, actual)
+      }
+      return sessionData
+    },
     onSuccess: async (result, variables) => {
       if (result?.mfa_required && result?.mfa_token) {
         setMfaChallenge({
@@ -56,11 +92,17 @@ export function useLogin() {
       setSession(sessionData)
       logActivity(
         `signed in as ${isAdminRole(sessionData.role) ? 'Admin' : 'Doctor / Staff'}`,
-        sessionData.user?.name
+        sessionData.user?.name,
       )
 
-      const destination =
-        location.state?.from || returnToPath || getLandingRoute(sessionData.role)
+      const landing = getLandingRoute(sessionData.role)
+      let destination = location.state?.from || returnToPath || landing
+      if (
+        !isAdminRole(sessionData.role) &&
+        ADMIN_ONLY_PREFIXES.some((prefix) => destination.startsWith(prefix))
+      ) {
+        destination = landing
+      }
       setReturnToPath(null)
       navigate(destination, { replace: true })
     },

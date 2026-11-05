@@ -1,11 +1,13 @@
 import { Link, useLocation } from 'react-router-dom'
 import { getTabsForRole } from '@/constants/navigation'
+import { useOpenTaskCount } from '@/features/tasks/hooks/useTasks'
 import { useSession } from '@/hooks/useSession'
 
 export function RoleTabs() {
   const location = useLocation()
-  const { role, todoCount } = useSession()
+  const { role } = useSession()
   const tabs = getTabsForRole(role)
+  const todoCount = useOpenTaskCount(tabs.some((tab) => tab.showTodoCount))
 
   return (
     <nav className="tabs" aria-label="Sections">

@@ -12,7 +12,8 @@ export const ROUTES = {
   DOCUMENTS: '/documents',
   ASK: '/ask',
   PATIENT_SUMMARY: '/patients/:patientId',
-  PATIENT_DEFAULT: '/patients/SYN-P-1042',
+  // "first" opens the first patient in the caller's list (see PatientSummaryPage)
+  PATIENT_DEFAULT: '/patients/first',
   TODOS: '/todos',
 }
 

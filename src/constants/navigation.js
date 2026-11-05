@@ -2,8 +2,8 @@ import { env } from '@/config/env'
 import { ROUTES } from './routes'
 import { isAdminRole } from './permissions'
 
-// Toggle to true when moving to Doctor / Staff flow implementation
-export const DOCTOR_PANEL_ENABLED = false
+// Doctor / Staff flow (S05–S08). NEEDED endpoints fall back to prototype mock data until the backend ships them.
+export const DOCTOR_PANEL_ENABLED = true
 
 export const ADMIN_TABS = [
   {

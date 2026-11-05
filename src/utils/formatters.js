@@ -30,3 +30,11 @@ export function formatTimelineDate(value) {
 export function formatTimeNow() {
   return dayjs().format('HH:mm')
 }
+
+/** "08 Oct" — day and month as the prototype prints admission dates and timeline rows. */
+export function formatShortDate(value) {
+  if (!value) return '—'
+  const parsed = dayjs(value)
+  if (!parsed.isValid()) return String(value)
+  return parsed.format('DD MMM')
+}

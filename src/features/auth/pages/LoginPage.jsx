@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { env } from '@/config/env'
+import { DOCTOR_PANEL_ENABLED } from '@/constants/navigation'
 import { ROUTES } from '@/constants/routes'
 import { Button } from '@/components/ui/Button'
 import { ErrorBox } from '@/components/ui/ErrorBox'
@@ -38,12 +39,18 @@ export function LoginPage() {
   // Multi-tenancy: default hospital tenant with interactive switcher
   const [tenantId, setTenantId] = useState(env.defaultTenantId || 'HOSP-001')
 
-  // Doctor / Staff panel is temporarily disabled while focusing on Admin workflow & APIs
-  const [loginRole] = useState('admin')
+  // "I'm signing in as": the server role must match, or sign-in stops (see useLogin)
+  const [loginRole, setLoginRole] = useState('admin')
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [validationError, setValidationError] = useState('')
+
+  const selectRole = (role) => {
+    setLoginRole(role)
+    setValidationError('')
+    loginMutation.reset()
+  }
 
   const handleGoogleSignIn = () => {
     setValidationError('')
@@ -66,6 +73,7 @@ export function LoginPage() {
     loginMutation.mutate({
       email: parsed.data.email.toLowerCase(),
       password: parsed.data.password,
+      expectedRole: loginRole,
     })
   }
 
@@ -88,11 +96,7 @@ export function LoginPage() {
           </p>
         </div>
 
-        <TenantSelector
-          tenantId={tenantId}
-          onTenantChange={setTenantId}
-          disabled={isAnyLoading}
-        />
+        <TenantSelector tenantId={tenantId} onTenantChange={setTenantId} disabled={isAnyLoading} />
 
         <div className="lgroup">
           <span className="lbl">I’m signing in as</span>
@@ -101,16 +105,17 @@ export function LoginPage() {
               type="button"
               aria-pressed={loginRole === 'admin'}
               disabled={isAnyLoading}
+              onClick={() => selectRole('admin')}
             >
               <b>Admin</b>
               <small>Run the claims workflow from upload to submission</small>
             </button>
             <button
               type="button"
-              aria-pressed={false}
-              disabled
+              aria-pressed={loginRole === 'doctor'}
+              disabled={isAnyLoading || !DOCTOR_PANEL_ENABLED}
               className="disabled:cursor-not-allowed disabled:opacity-50"
-              title="Doctor / Staff panel is disabled until Admin API integration is complete"
+              onClick={() => selectRole('doctor')}
             >
               <b>Doctor / Staff</b>
               <small>Find patient documents and complete your to-dos</small>
