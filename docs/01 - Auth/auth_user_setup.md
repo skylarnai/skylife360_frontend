@@ -37,17 +37,19 @@ python -m app.manage create-user --tenant-id HOSP-001 --email superadmin@hosp.or
 python -m app.manage create-user --tenant-id HOSP-001 --email admin@hosp.org --name "Admin User" --role ADMIN --password "SecurePass123!"
 ```
 
-### Doctor / staff (member)
+### Records staff (member): sees the whole hospital
 
 ```powershell
-python -m app.manage create-user --tenant-id HOSP-001 --email coder@hosp.org --name "Medical Coder" --role MEMBER --password "SecurePass123!"
+python -m app.manage create-user --tenant-id HOSP-001 --email staff@hosp.org --name "K. Iyer" --role MEMBER --password "SecurePass123!"
 ```
 
-### Read-only (viewer)
+### Doctor (viewer): sees only assigned patients
 
 ```powershell
-python -m app.manage create-user --tenant-id HOSP-001 --email auditor@hosp.org --name "Auditor" --role VIEWER --password "SecurePass123!"
+python -m app.manage create-user --tenant-id HOSP-001 --email doctor@hosp.org --name "Dr. S. Menon" --role VIEWER --password "SecurePass123!"
 ```
+
+A `VIEWER` sees nothing until you assign patients to it (section 6).
 
 Each command prints the new user's ID. For `SUPER_ADMIN` and `ADMIN` it also prints an **MFA secret**; see section 4.
 
@@ -59,10 +61,10 @@ If the email already exists in the tenant you get `error: user ... already exist
 |---|---|---|---|
 | `SUPER_ADMIN` | Always on | Admin | Claims |
 | `ADMIN` | Always on | Admin | Claims |
-| `MEMBER` | Off | Doctor / Staff | Documents |
-| `VIEWER` | Off | Doctor / Staff | Documents |
+| `MEMBER` | Off | Doctor / Staff (records staff, whole hospital) | Documents |
+| `VIEWER` | Off | Doctor / Staff (doctor, assigned patients only) | Documents |
 
-The Doctor / Staff login is currently disabled in the UI while the Admin workflow is being built, so use an admin account to sign in.
+On the login page, pick the matching option under **I'm signing in as**: **Admin** for `SUPER_ADMIN` / `ADMIN`, **Doctor / Staff** for `MEMBER` / `VIEWER`. A mismatch stops sign-in with a message naming the right option. For the Doctor / Staff screens, see [`../03 - Doctor and Staff/README.md`](../03%20-%20Doctor%20and%20Staff/README.md).
 
 ## 3. Check which users exist
 
@@ -92,12 +94,26 @@ python -m app.manage reset-token --tenant-id HOSP-001 --email superadmin@hosp.or
 
 A reset token works once. Resetting the password signs out the user's active sessions.
 
-## 6. Limit a user to specific patients (optional)
+## 6. Assign patients to a doctor (`VIEWER`)
 
-Gives an auth user access to one patient partition (`user_id`). Take the auth user ID from `list-users`.
+A `VIEWER` only sees patients granted here: documents, search, Ask and to-dos are all filtered, and anything else returns `403`. Use patient IDs that already have uploads; they're in the **Patient** column of the admin Claims list. Take the auth user ID from `list-users`.
 
 ```powershell
-python -m app.manage grant-user-access --tenant-id HOSP-001 --auth-user-id <AUTH_USER_ID> --user-id USER-001
+python -m app.manage grant-user-access --tenant-id HOSP-001 --auth-user-id <AUTH_USER_ID> --user-id <PATIENT_ID>
+```
+
+Run it once per patient. `MEMBER` and admin accounts don't need this.
+
+**Without the CLI (backend running, signed in as an admin):** paste this in the browser DevTools console on `http://localhost:5173`:
+
+```js
+const me = await (await fetch('/api/v1/auth/me', { credentials: 'include' })).json()
+const post = (url, body) => fetch(url, { method: 'POST', credentials: 'include',
+  headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': me.csrf_token },
+  body: JSON.stringify(body) }).then(async (r) => { const j = await r.json(); console.log(r.status, j); return j })
+
+const doc = await post('/api/v1/users', { email: 'doctor@hosp.org', name: 'Dr. S. Menon', role: 'VIEWER', temporary_password: 'SecurePass123!' })
+await post(`/api/v1/users/${doc.id}/user-access`, { user_ids: ['<PATIENT_ID_1>', '<PATIENT_ID_2>'] })
 ```
 
 > The backend README shows this command with `--target-user-ids`, but the CLI actually takes `--tenant-id`, `--auth-user-id` and `--user-id`, one patient per run.
@@ -143,3 +159,5 @@ Restart `npm run dev` after changing the frontend `.env`, because Vite only read
 | "That code is incorrect or has expired" | The code rotates every 30 seconds. Go back to sign in to get a fresh one. |
 | `/auth/me` returns "Missing API key" | Expected when you're not signed in (no session cookie). |
 | Network error on login | Backend isn't running on `http://127.0.0.1:8000`, or `VITE_PROXY_TARGET` in `.env` points elsewhere. |
+| `InvalidPasswordError: password authentication failed for user "skylife"` (CLI or server startup) | `DATABASE_URL` comes from the JSON secrets file set by `SECRETS_FILE_PATH` in the backend `.env`, and its password doesn't match Postgres. Fix the password in that file, or run `ALTER ROLE skylife WITH PASSWORD '…';` in pgAdmin as `postgres`. A server that started before the change keeps working until restart, so the server may still work while the CLI fails. |
+| "… is a Doctor / Staff account. Pick …" on login | The "I'm signing in as" choice doesn't match the account's role. Pick the other option. |

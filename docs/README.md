@@ -4,9 +4,9 @@
 |---|---|
 | Product | Sky Claims by Skylarn AI (frontend for `sky_life_360_dev`) |
 | Reference prototype | [`docs/prototype/Sky_Claims_login_and_roles_v2.html`](prototype/Sky_Claims_login_and_roles_v2.html) (login, role-based navigation, every screen below; open it in a browser) |
-| Auth design | `Suvidha Hospital prototype/Sky Claims — Login, Authentication & Authorization.md` |
+| Auth design | `Suvidha Hospital prototype/Sky Claims — Login, Authentication & Authorization.md` · backend guide: `sky_life_360_dev/docs/FRONTEND_AUTH_UI_INTEGRATION_GUIDE.md` |
 | Backend | `D:\projects\sky_life_360_dev` · FastAPI · all paths under `/api/v1` |
-| Status | Screens are `Planned`. Build one at a time, in the order below. |
+| Status | See the screen map below. Admin screens are built and wired. The Doctor / Staff flow is built, waiting on 7 backend endpoints. |
 
 > **Team document standard (applies to every screen doc)**
 >
@@ -39,12 +39,29 @@
 | S03.5 | Step 5 · Integrity | Admin | `…/integrity` | [desk_integrity_S03.5.md](02%20-%20Admin/Claim%20Desk/desk_integrity_S03.5.md) | READY |
 | S03.6 | Step 6 · Approve & submit | Admin | `…/approve` | [desk_approve_submit_S03.6.md](02%20-%20Admin/Claim%20Desk/desk_approve_submit_S03.6.md) | READY |
 | S04 | Users & access | Admin | `/users` | [02 - Admin/users_access_S04.md](02%20-%20Admin/users_access_S04.md) | **NEEDED** |
-| S05 | Patient documents | Doctor / Staff | `/documents` | [03 - Doctor and Staff/patient_documents_S05.md](03%20-%20Doctor%20and%20Staff/patient_documents_S05.md) | Partial |
-| S06 | Ask about a patient | Doctor / Staff | `/ask` | [03 - Doctor and Staff/ask_patient_S06.md](03%20-%20Doctor%20and%20Staff/ask_patient_S06.md) | READY |
-| S07 | Patient summary | Doctor / Staff | `/patients/:patientId` | [03 - Doctor and Staff/patient_summary_S07.md](03%20-%20Doctor%20and%20Staff/patient_summary_S07.md) | **NEEDED** |
-| S08 | My to-dos | Doctor / Staff | `/todos` | [03 - Doctor and Staff/my_todos_S08.md](03%20-%20Doctor%20and%20Staff/my_todos_S08.md) | Partial |
+| S05 | Patient documents | Doctor / Staff | `/documents` | [03 - Doctor and Staff/patient_documents_S05.md](03%20-%20Doctor%20and%20Staff/patient_documents_S05.md) | Built · partial (N1, N2, N7) |
+| S06 | Ask about a patient | Doctor / Staff | `/ask` | [03 - Doctor and Staff/ask_patient_S06.md](03%20-%20Doctor%20and%20Staff/ask_patient_S06.md) | Wired · picker needs N2 |
+| S07 | Patient summary | Doctor / Staff | `/patients/:patientId` | [03 - Doctor and Staff/patient_summary_S07.md](03%20-%20Doctor%20and%20Staff/patient_summary_S07.md) | Built · **NEEDED** (N1–N4) |
+| S08 | My to-dos | Doctor / Staff | `/todos` | [03 - Doctor and Staff/my_todos_S08.md](03%20-%20Doctor%20and%20Staff/my_todos_S08.md) | Built · **NEEDED** (N5–N7) |
 
 The full endpoint list (READY and NEEDED, which screen uses each) is in [api_catalog.md](api_catalog.md).
+
+The Doctor / Staff flow (S05–S08) is enabled and built against mocks for its missing endpoints. Start at [03 - Doctor and Staff/README.md](03%20-%20Doctor%20and%20Staff/README.md); the backend APIs needed to finish it are in [doctor_flow_apis.md](03%20-%20Doctor%20and%20Staff/doctor_flow_apis.md).
+
+## Folder layout
+
+```
+docs/
+├── README.md                      this index
+├── api_catalog.md                 every endpoint, READY vs NEEDED
+├── prototype/                     reference HTML prototype
+├── 00 - Foundation/               S00
+├── 01 - Auth/                     S01 login · auth_user_setup.md (create users, roles, patient access)
+├── 02 - Admin/                    S02 worklist · S04 users
+│   └── Claim Desk/                S03 shell + S03.1–S03.6 screen docs
+│       └── integration/           build-time plans and notes per step (ingestion, gaps, integrity, approve)
+└── 03 - Doctor and Staff/         README (start here) · doctor_flow_apis.md · S05–S08
+```
 
 ## Role-based navigation (from the prototype)
 

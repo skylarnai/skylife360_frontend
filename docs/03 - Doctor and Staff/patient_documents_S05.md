@@ -3,20 +3,26 @@
 | Field | Value |
 |---|---|
 | Screen | S05 — Patient documents (search and read processed files) |
-| Role | Doctor, Records staff, Admin (`docs:read`) |
-| Route | `/documents` (Doctor / Staff landing page); `?patient=&type=&status=&q=&file=` |
+| Role | Doctor (`VIEWER`), Records staff (`MEMBER`), Admin can view · needs `docs:read` |
+| Route | `/documents` (Doctor / Staff landing page) · URL state `?q=&patient=&type=&status=&file=` |
 | Prototype reference | `viewFiles()`, `fileResults()`, `fileDetail()` |
 | Depends on | S00, S01 |
-| Status | Planned |
-| API readiness | Partial: in-document search and file detail are READY; the document list and per-page text are **NEEDED** |
+| Status | **Built** · partly wired: in-document search and page text are live; the list is mock until N1 |
+| API readiness | Partial: N1 `GET /files`, N2 `GET /patients`, N7 `POST /tasks` are **NEEDED** ([doctor_flow_apis.md](doctor_flow_apis.md)) |
 
 ## 1. Purpose
 
-Let a doctor or records staff member find any of their patients' documents by name, patient or anything written inside them, see whether each one was read, and read its text, without claim amounts, payer details or integrity findings.
+Let a doctor or records staff member find any of their patients' documents by name, patient or anything written inside them, see whether each one was read, and read its text. No claim amounts, payer details or integrity findings appear.
 
 ## 2. Users and permissions
 
-`docs:read`. Doctors see only their care-team patients ("Your patients only"); records staff and admins see the whole hospital. Re-scan requests need `files:upload` or `tasks:resolve`.
+| Role | Sees | Can |
+|---|---|---|
+| Doctor (`VIEWER`) | Only assigned patients (backend `assigned_user_ids`); header says "Your patients only" | Read, search |
+| Records staff (`MEMBER`) | Whole hospital | Read, search, "Ask records to re-scan" (`files:upload`) |
+| Admin | Whole hospital; header says "Whole hospital" | Read, search |
+
+Buttons are gated on `permissions` from `/auth/me`; the API enforces every check again.
 
 ## 3. Layout
 
@@ -24,97 +30,101 @@ Let a doctor or records staff member find any of their patients' documents by na
 Patient documents                                                       Your patients only
 ┌documents┐┌ready to search┐┌couldn't be read┐┌patients┐
 │   17    ││      15       ││       1        ││   4    │
+[ Showing demo documents: GET /api/v1/files is not on the server yet … ]   ← only while mock
 ┌ main ───────────────────────────────────────────────────┐ ┌ rail ───────────────────────────┐
 │ Search documents by name, patient or anything written   │ │ DOCUMENT                [READY] │
 │ [ e.g. signature, troponin, SYN-P-1103, cataract      ] │ │ operation_note.pdf              │
 │ Patient [All ▾]  Document type [All ▾]  Status [All ▾]  │ │ SYN-P-1042 · F · 46 · Lap chole │
-│ Try: (signature) (histopathology) (troponin)            │ │ Type ............ Operation     │
-│ Showing 3 of 17 documents                               │ │ Pages ........... 2             │
-│ DOCUMENT              PATIENT     TYPE     STATUS PAGES UPLOADED │ Scanned image ... No          │
-│ anaesthesia_record.jpg SYN-P-1042 [OPERATION] [READY] 1·scanned 28 Oct 11:29 │ Uploaded ... 28 Oct by A. Rao │
-│  Page 1 · Record (scanned): "…Anaesthetist <mark>signature</mark>: blank." │ TEXT FROM THIS DOCUMENT     │
-│ …                                                        │ │ Page 1 · Procedure             │
-└──────────────────────────────────────────────────────────┘ │ │ Laparoscopic cholecystectomy…  │
-                                                             │ [Ask about this patient →]     │
+│ Try: (signature) (histopathology) (troponin)            │ │ Type / Pages / Scanned / Uploaded│
+│ Showing 3 of 17 documents                               │ │ TEXT FROM THIS DOCUMENT         │
+│ DOCUMENT  PATIENT  TYPE  STATUS  PAGES  UPLOADED        │ │ Page 1 · Procedure …            │
+│  Page 1 · Record (scanned): "…<mark>signature</mark>…"  │ │ [Ask about this patient →] [Patient summary] │
+└──────────────────────────────────────────────────────────┘ │ API for this screen (dev) · Activity │
                                                              └────────────────────────────────┘
 ```
-
-Matching text inside a document is highlighted with `<mark>` (`--mark`), both in the result row's snippet and in the detail panel.
 
 ## 4. Content and states
 
 | State | UI |
 |---|---|
-| No search | All documents (paged), newest first |
-| Search | Rows whose name, patient, type or text matches; each row shows the best matching passage ("Page 1 · Assessment: …") |
+| Loading | Table skeleton rows |
+| No search | All documents, newest first |
+| Search (debounced 300 ms) | Rows whose name, patient, type or text match. Each row shows its best passage: a local match (mock text) or the top `rag/search` hit for that file (3+ characters) |
 | No match | Dashed box "No documents match. Clear a filter or try a shorter search." |
-| No document selected | Rail: "Select a document to see its details and the text read from it." |
-| Selected `READY` | Detail + text per page + "Ask about this patient →" |
-| Selected `COULDN'T READ` | Red detail "Phone photo too blurry to read. Re-scan and upload it again." + "Ask records to re-scan" |
-| Selected `DUPLICATE COPY` | Muted "Same file as …, not stored twice" |
+| Nothing selected | Rail: "Select a document to see its details and the text read from it." |
+| Selected `READY` | Details + text per page (`GET /files/{id}/text`) + "Ask about this patient →" (only when `VITE_ENABLE_ASK=true`) + "Patient summary" |
+| Selected `COULDN'T READ` | Red detail text + "Ask records to re-scan" (with permission) |
+| Selected `DUPLICATE COPY` | "Same file as …, not stored twice" |
+| List from mock | `DemoDataNote` above the columns |
+| Error | `ErrorBox` with Retry |
 
 ## 5. Interactions
 
-- Typing in search is debounced 300ms. With text, call in-document search; without, list documents.
+- Search, filters and the selected file live in the URL, so a link opens the same view.
 - "Try:" chips fill the search.
-- Filters and the selected file live in the URL so a link opens the same view.
-- Row click or Enter selects it (row gets `--tint`).
-- **Ask about this patient →** goes to S06 with the patient selected.
-- **Ask records to re-scan** creates a to-do for records staff (S08 `POST /tasks`, NEEDED); activity "requested a re-scan of consent_form.jpg".
+- Row click / Enter selects the row (`--tint`).
+- **Ask about this patient →** goes to `/ask?patient=<id>` (S06).
+- **Patient summary** goes to `/patients/<id>` (S07).
+- **Ask records to re-scan** → `POST /tasks` (`type: RESCAN`, `assignee_role: RECORDS_STAFF`). Activity: "requested a re-scan of consent_form.jpg".
 
 ## 6. APIs
 
+Source of truth: [`doctor_flow_apis.md`](doctor_flow_apis.md). The dev panel list is `PATIENT_DOCUMENTS_APIS` in `src/constants/doctorFlowApis.js`.
+
 | Method | Path | Tag | Used for |
 |---|---|---|---|
-| GET | `/api/v1/files?patient=&type=&status=&limit=&offset=` | **NEEDED** | Document list for the table and the tile counts |
-| GET | `/api/v1/files/{file_id}/text` | **NEEDED** | Text per page with headings for the detail panel |
-| POST | `/api/v1/rag/search` | READY | `{ query, filters: { user_id?, file_ids?, classification_types? }, top_k, max_chunks_per_file: 1 }` → passages with `file_id, original_filename, page_number, heading_path, content, classification_type` (the search results and snippets) |
-| GET | `/api/v1/ingestion/files/{file_id}` | READY | Document status, size, timestamps, uploader |
-| POST | `/api/v1/ingestion/upload` | READY | Re-upload a re-scanned file (records staff) |
-
-Until `/files` exists: build the table from the patient's batches (mock), and use the real `rag/search` for searching inside documents.
+| GET | `/api/v1/files?patient=&type=&status=` | **NEEDED · N1** | Table + tiles (`counts`) |
+| POST | `/api/v1/rag/search` | READY | `{ query, filters: { user_id? }, top_k: 20, max_chunks_per_file: 1 }` → snippets |
+| GET | `/api/v1/files/{file_id}/text?page=` | READY | Detail text, one page per call (UI loads up to 20) |
+| GET | `/api/v1/ingestion/files/{file_id}` | READY | File status and timestamps |
+| GET | `/api/v1/patients?mine=true` | **NEEDED · N2** | Patient filter options |
+| POST | `/api/v1/tasks` | **NEEDED · N7** | Ask records to re-scan |
 
 ## 7. Data mapping
 
 | API | UI |
 |---|---|
-| file `original_filename` | Document (bold), highlighted |
-| `user_id` | Patient (mono) |
-| `classification_type` | Type chip (S00 map) |
-| `status` | Status chip (S00 map) |
-| pages, OCR flag | "1 · scanned" |
-| `uploaded_at` + uploader | "28 Oct 11:29"; detail "28 Oct 11:27 by A. Rao" |
-| search hit `page_number`, `heading_path`, `content` | Snippet "Page 1 · Assessment: …" |
+| `original_filename` | Document (bold, highlighted) |
+| `user_id` | Patient (mono, highlighted) |
+| `classification_type` | Type chip (`DOC_TYPE_MAP`) |
+| `status` (`INDEXED` / `EXTRACTION_FAILED` / `DUPLICATE` / `PROCESSING`) | Status chip (`FILE_STATUS_MAP`) |
+| `total_pages`, `has_ocr` | "1 · scanned" |
+| `uploaded_at`, `uploaded_by` | "28 Oct 11:29"; detail "… by A. Rao" |
+| search hit `page_number`, `heading_path`, `content` | "Page 1 · Assessment: “…”" |
+| `counts.documents / ready / failed / patients` | The four tiles |
 
 ## 8. Components
 
-S00: `TileGrid`, `DataTable`, `SearchInput`, `Select`, `Chip`, `Kv`, `TwoColumn`, `ApiRail`. New in `features/documents/components/`: `DocumentFilters`, `DocumentsTable`, `DocumentDetail`, `PageText`, `Highlight` (shared util component, safe: no `dangerouslySetInnerHTML`), `QuickSearchChips`.
+S00: `TileGrid`, `Tile`, `DataTable`, `SearchInput`, `Select`, `Chip`, `Kv`, `ApiRail`, `ActivityRail`. Shared: `Highlight` (no `dangerouslySetInnerHTML`), `DemoDataNote`. Feature: `DocumentsTable`, `DocumentDetail`.
 
-## 9. Files to create
+## 9. Files
 
 ```
 src/features/documents/
   pages/PatientDocumentsPage.jsx
-  api/filesApi.js  filesApi.mock.js
-  hooks/useDocuments.js  useDocumentSearch.js  useDocument.js  useDocumentText.js
-  components/DocumentFilters.jsx  DocumentsTable.jsx  DocumentDetail.jsx  PageText.jsx  QuickSearchChips.jsx
-src/components/common/Highlight.jsx
+  components/DocumentsTable.jsx  DocumentDetail.jsx
+  hooks/useDocuments.js          useDocuments · useDocumentText · useDocumentSearch
+  api/filesApi.js                listFiles (N1, mock fallback) · getFileText · getFileStatus
+  api/filesApi.mock.js           17 prototype documents
+src/components/common/Highlight.jsx  DemoDataNote.jsx
+src/hooks/useDebouncedValue.js
 ```
 
 ## 10. Acceptance criteria
 
-1. Searching "signature" finds `anaesthesia_record.jpg` with the highlighted snippet, as in the prototype.
-2. Filters and selection survive a page reload (URL).
-3. Highlighting never injects HTML (search text with `<script>` shows as text).
-4. A doctor never sees amounts, payer or integrity information on this screen.
-5. At 375px the detail panel appears below the table.
+1. Searching "signature" finds `anaesthesia_record.jpg` with the highlighted snippet. ✅ (mock)
+2. Filters and selection survive a reload. ✅
+3. Highlighting never injects HTML. ✅
+4. No amounts, payer or integrity data on the screen. ✅
+5. At 375px the detail panel sits below the table. ✅ (`.cols`)
+6. When N1 ships, the demo note disappears and the table shows real files without code changes.
 
 ## 11. Backend gaps and open questions
 
-- **NEEDED:** `GET /files` (list with filters) and `GET /files/{id}/text` (page text). `rag/search` returns passages, not the whole document.
-- **NEEDED:** doctor care-team scope on search and files (auth module, `staff_patient_access`).
-- A document viewer that highlights the exact place needs character offsets or boxes per chunk; today chunks have page and heading only.
+- **N1** `GET /files` and **N7** `POST /tasks`: contracts in [doctor_flow_apis.md](doctor_flow_apis.md) §4.
+- A text endpoint that returns every page in one call (`?all=true`) would save N requests per document.
+- Exact-place highlighting needs character offsets or boxes per chunk; chunks have page and heading only.
 
 ## 12. Build prompt for Claude
 
-> Build S05 from `docs/03 - Doctor and Staff/patient_documents_S05.md`. Use the real `POST /api/v1/rag/search` for in-document search and `GET /api/v1/ingestion/files/{file_id}` for details; mock `GET /files` and `GET /files/{id}/text` with the prototype's 17 documents. Keep filters and selection in the URL and highlight matches without `dangerouslySetInnerHTML`. Meet section 10, then run lint and build.
+> Wire S05 to the real `GET /api/v1/files` now that it exists: confirm the response matches N1 in `docs/03 - Doctor and Staff/doctor_flow_apis.md`, map any differences inside `filesApi.listFiles`, then remove the mock fallback and `filesApi.mock.js`. Keep URL state and highlighting as they are. Run lint and build.

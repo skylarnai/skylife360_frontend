@@ -3,111 +3,109 @@
 | Field | Value |
 |---|---|
 | Screen | S08 — My to-dos (requests from the claims team and insurers) |
-| Role | Doctor, Records staff (`tasks:resolve`); Admin can view |
+| Role | Doctor (`VIEWER`), Records staff (`MEMBER`) · resolving needs `tasks:resolve` |
 | Route | `/todos` |
 | Prototype reference | `viewTasks()`, `TASKS` |
-| Depends on | S00, S01 |
+| Depends on | S00, S01, S05 ("Open document") |
 | Next screens that depend on this | S03.4 shows a gap as `FIXED` when its to-do is done |
-| Status | Planned |
-| API readiness | Partial: gap reports are READY; the to-do list and resolve are **NEEDED** |
+| Status | **Built** against an in-memory mock (resolving works in the session) |
+| API readiness | **NEEDED**: N5 list, N6 resolve, N7 create ([doctor_flow_apis.md](doctor_flow_apis.md)) |
 
 ## 1. Purpose
 
-Give doctors and records staff one list of what the claims team and insurers need from them (sign a record, answer an insurer question, confirm a diagnosis, re-scan a page), with the document to look at and a one-click way to mark it done.
+Give doctors and records staff one list of what the claims team and insurers need from them: sign a record, answer an insurer question, confirm a diagnosis, re-scan a page. Each to-do shows the document to look at and has a one-click way to mark it done.
 
 ## 2. Users and permissions
 
-`tasks:resolve`. Each user sees only to-dos assigned to them. The tab badge shows the open count.
+`tasks:resolve` to act. Each user sees to-dos assigned to them or to their role pool (re-scans go to records staff). The tab badge shows the open count (`useOpenTaskCount`, same cache as the list).
 
 ## 3. Layout
 
 ```
 ┌ main ──────────────────────────────────────────────────────────┐ ┌ rail ─────────────────┐
 │ My to-dos                   Requests from the claims team and insurers │ API (dev)       │
-│ (4 to do) (1 done)                                              │ │ Activity · audit     │
-│ ┌──────────────────────────────────────────────────────────────┐ │ └──────────────────────┘
-│ │ [SIGNATURE NEEDED] Sign the anaesthesia record   SYN-P-1042 · SUV-261028-01 │
-│ │ The anaesthetist signature is blank. The insurer returns     │ │
-│ │ surgical claims without it.                                  │ │
-│ │ See: anaesthesia_record.jpg · page 1 (teal)                   │ │
-│ │ [Mark as signed] [Open document]                             │ │
-│ └──────────────────────────────────────────────────────────────┘ │
-│ ┌ [INSURER QUESTION] Explain the 2-night stay  SYN-P-1042 · TPA SYN-3 ┐ │
-│ │ …suggested reply (snippet with citation chip)…               │ │
-│ │ [Send reply] [Open document]                                 │ │
-│ └──────────────────────────────────────────────────────────────┘ │
-└──────────────────────────────────────────────────────────────────┘
+│ [ Showing demo to-dos … ]                  ← only while mock    │ │ Activity · audit     │
+│ (4 to do) (1 done)                                              │ └──────────────────────┘
+│ ┌ [SIGNATURE NEEDED] Sign the anaesthesia record   SYN-P-1042 · SUV-261028-01 ┐
+│ │ The anaesthetist signature is blank. …                       │
+│ │ See: anaesthesia_record.jpg · page 1                          │
+│ │ [Mark as signed] [Open document]                              │
+│ └──────────────────────────────────────────────────────────────┘
+│ ┌ [INSURER QUESTION] Explain the 2-night stay  SYN-P-1042 · TPA SYN-3 ┐
+│ │ Suggested reply (edit before sending) [textarea] [discharge_summary.pdf, page 1] │
+│ │ [Send reply] [Open document]                                  │
+│ └──────────────────────────────────────────────────────────────┘
 ```
 
-Done to-dos fade to 65% opacity, show a `DONE` chip and "Done by Dr. S. Menon at 11:42".
+Done to-dos fade to 65% opacity and show a `DONE` chip and "Done by Dr. S. Menon at 11:42".
 
 ## 4. Content and states
 
-| To-do type | Chip | Action button |
+| Type | Chip (tone) | Action |
 |---|---|---|
 | `SIGNATURE` | SIGNATURE NEEDED (amb) | Mark as signed |
-| `PAYER_QUERY` | INSURER QUESTION (teal) | Send reply (editable suggested reply) |
+| `PAYER_QUERY` | INSURER QUESTION (teal) | Send reply (the reply is editable and can't be empty) |
 | `CONFIRM` | PLEASE CONFIRM (teal) | Confirm |
-| `RESCAN` | RE-SCAN NEEDED (red) | Mark as re-scanned (records staff can upload the new file inline) |
+| `RESCAN` | RE-SCAN NEEDED (red) | Mark as re-scanned |
 
-Each card: chip, title, reference (patient · claim or payer, mono), description, "See: file · page", action buttons. Sort: open first, then due date. Empty: "Nothing to do. New requests from the claims team will appear here."
+Order: open first, then by due date. Empty: "Nothing to do. New requests from the claims team will appear here." Map: `src/features/tasks/constants.js`.
 
 ## 5. Interactions
 
-- **Action button** → resolve the to-do (with an optional note; the insurer reply text for `PAYER_QUERY`). Activity: "completed: Sign the anaesthesia record". Invalidate the tab count and S03.4's gap list.
-- **Open document** → S05 with that file and page.
-- **Suggested reply** for insurer questions is drafted with `rag/ask` on the patient's documents and shown with its citation; the user can edit it before sending.
+- **Action button** → resolve, sending the reply text for `PAYER_QUERY`. Logs "completed: …" in the activity rail, and refreshes `['tasks']` (list + badge) and `['gaps']`.
+- **Open document** → `/documents?file=<file_id>` (S05).
+- Without `tasks:resolve`, the action button is hidden and the reply is read-only.
 
 ## 6. APIs
 
+Dev panel list: `MY_TODOS_APIS` in `src/constants/doctorFlowApis.js`.
+
 | Method | Path | Tag | Used for |
 |---|---|---|---|
-| GET | `/api/v1/tasks?assignee=me&status=` | **NEEDED** | `[{ task_id, type, title, description, user_id, claim_id, payer, source: { file_id, original_filename, page_number }, status, due_at, resolved_by, resolved_at }]` |
-| POST | `/api/v1/tasks/{task_id}/resolve` | **NEEDED** | `{ note?, reply? }` → task |
-| POST | `/api/v1/tasks` | **NEEDED** | Created by S05 "Ask records to re-scan" and by the gap engine |
-| GET | `/api/v1/claims/gap-reports/{gap_report_id}` | READY | The gap report sent back to this user after a Send back (S03.6) |
-| POST | `/api/v1/claims/gap-reports/{gap_report_id}/links` | READY | Short-lived link to open the report |
-| GET | `/api/v1/claims/gaps/runs/{run_id}` | READY | Gap findings with source pages |
-| POST | `/api/v1/rag/ask` | READY | Draft an insurer reply from the documents |
-
-Until `/tasks` exists: mock the five prototype to-dos; show real gap reports (READY) as extra cards when the user has any.
+| GET | `/api/v1/tasks?assignee=me&status=` | **NEEDED · N5** | List + badge |
+| POST | `/api/v1/tasks/{task_id}/resolve` | **NEEDED · N6** | `{ note?, reply? }` → task (`DONE`, `resolved_by`, `resolved_at`) |
+| POST | `/api/v1/tasks` | **NEEDED · N7** | Created by S05 re-scan and by the claims desk / gap engine |
+| POST | `/api/v1/rag/ask` | READY | Backend drafts `suggested_reply` when a `PAYER_QUERY` is created |
+| GET | `/api/v1/claims/gap-reports/{gap_report_id}` | READY | Gap report sent back to this user (not wired yet) |
 
 ## 7. Data mapping
 
 | API | UI |
 |---|---|
-| `type` | Chip + button (section 4 table) |
-| `user_id` + `claim_id` or `payer` | Reference line (mono) |
-| `source` | "See: anaesthesia_record.jpg · page 1" |
-| `status` `DONE`, `resolved_by`, `resolved_at` | Faded card, `DONE` chip, "Done by … at HH:mm" |
+| `type` | Chip + button (section 4) |
+| `user_id` + (`payer` or `claim_id`) | Reference line (mono) |
+| `source.original_filename`, `page_number` | "See: … · page N" |
+| `suggested_reply.text` / `.citation` | Textarea / citation chip |
+| `status: DONE`, `resolved_by`, `resolved_at` | Faded card, `DONE` chip, "Done by … at HH:mm" |
 
 ## 8. Components
 
-S00: `Chip`, `Pill`, `Button`, `TwoColumn`, `ActivityRail`, `ApiRail`. Reuse `CitationText` (S03.3). New in `features/tasks/components/`: `TaskCard`, `SuggestedReply`, `TaskCounts`. Hook `useOpenTaskCount()` for the tab badge (in S00's `RoleTabs`).
+S00: `Chip`, `Pill`, `Button`, `TextArea`, `CardPad`, `ApiRail`, `ActivityRail`. Feature: `TaskCard`. The tab badge is wired in `components/layout/RoleTabs.jsx`.
 
-## 9. Files to create
+## 9. Files
 
 ```
 src/features/tasks/
   pages/MyTodosPage.jsx
-  api/tasksApi.js  tasksApi.mock.js
-  hooks/useTasks.js  useResolveTask.js  useOpenTaskCount.js  useSuggestedReply.js
-  components/TaskCard.jsx  SuggestedReply.jsx  TaskCounts.jsx
-  constants.js   TASK_TYPES (chip, tone, action label)
+  components/TaskCard.jsx
+  hooks/useTasks.js          useTasks · useOpenTaskCount · useResolveTask · useCreateTask
+  api/tasksApi.js            N5 / N6 / N7 with mock fallback
+  api/tasksApi.mock.js       5 prototype to-dos, kept in memory
+  constants.js               TASK_TYPES
 ```
 
 ## 10. Acceptance criteria
 
-1. The mock shows the five prototype to-dos with matching chips, buttons and wording.
-2. Resolving one updates the counts, the tab badge and the card (faded, `DONE`, who and when) without a page reload.
-3. The insurer-question reply can be edited before sending and keeps its citation.
-4. "Open document" lands on S05 with the file selected.
+1. The mock shows the five prototype to-dos with matching chips, buttons and wording. ✅
+2. Resolving one updates the counts, the tab badge and the card without a reload. ✅
+3. The insurer reply can be edited before sending and keeps its citation. ✅
+4. "Open document" lands on S05 with the file selected. ✅
 
 ## 11. Backend gaps and open questions
 
-- **NEEDED:** a `tasks` module (table + `GET /tasks`, `POST /tasks`, `POST /tasks/{id}/resolve`) and a link from gap findings to tasks, so a resolved to-do marks the gap as fixed.
-- Who sends insurer replies to the TPA, and how? (Probably the claims admin from the desk; the doctor only drafts.)
+- **N5–N7:** a `tasks` module (table + router) and a `gap_finding_id` link, so resolving a to-do marks the gap `FIXED`.
+- Who sends the insurer reply to the TPA? Proposed: the claims admin from the desk; the doctor's reply is stored on the task.
 
 ## 12. Build prompt for Claude
 
-> Build S08 from `docs/03 - Doctor and Staff/my_todos_S08.md` against `tasksApi.mock.js` (the five prototype to-dos), with the same function signatures the real `/api/v1/tasks` endpoints will have. Draft the insurer reply with the real `POST /api/v1/rag/ask`. Wire the tab badge count. Meet section 10, then run lint and build.
+> When the `/api/v1/tasks` endpoints (N5–N7 in `docs/03 - Doctor and Staff/doctor_flow_apis.md`) ship, remove the mock fallbacks in `tasksApi.js` and delete `tasksApi.mock.js`. Check the badge count, resolve flow and S05 re-scan against the real API. Run lint and build.

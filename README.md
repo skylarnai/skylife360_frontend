@@ -6,10 +6,12 @@ React web app for the Sky Life 360 claim adjudication backend (`sky_life_360_dev
 
 ## Status
 
-`src/` holds only the empty folder structure. No screen is built yet. Start with **S00 Foundation**.
+- **Admin** (S00–S04, claim desk S03.1–S03.6): built and wired to the backend.
+- **Doctor / Staff** (S05–S08): built; 7 backend endpoints still NEEDED, mocked until they ship. See [docs/03 - Doctor and Staff/README.md](docs/03%20-%20Doctor%20and%20Staff/README.md).
 
-- Screen specs, build order and ready-to-paste build prompts: [docs/README.md](docs/README.md)
+- Screen specs, build order and build prompts: [docs/README.md](docs/README.md)
 - Every backend endpoint the screens use, READY vs NEEDED: [docs/api_catalog.md](docs/api_catalog.md)
+- Creating users and roles for local login: [docs/01 - Auth/auth_user_setup.md](docs/01%20-%20Auth/auth_user_setup.md)
 
 ## Getting started (once S00 is built)
 
@@ -31,7 +33,7 @@ In dev, Vite proxies `/api/*` to the backend and adds the `X-API-Key` header ser
 ## Folder structure
 
 ```
-docs/                    Screen docs (S00–S08) and the API catalog
+docs/                    Screen docs (S00–S08), API catalog, setup guides (see docs/README.md)
 src/
 ├── app/                 App.jsx, providers/, router/ (routes + guards)
 ├── assets/              logos/ images/ icons/ fonts/  (export from assets/index.js)

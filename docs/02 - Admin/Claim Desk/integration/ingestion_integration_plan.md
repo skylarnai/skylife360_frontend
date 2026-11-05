@@ -4,8 +4,8 @@
 |---|---|
 | Scope | Claim desk step 1 **Upload** (S03.1) and step 2 **Read documents** (S03.2) |
 | Backend feature | `F001 ingestion pipeline` + `F002 RAG extraction` in `sky_life_360_dev` |
-| Screen docs | [`02 - Admin/Claim Desk/desk_upload_S03.1.md`](02%20-%20Admin/Claim%20Desk/desk_upload_S03.1.md), [`desk_read_documents_S03.2.md`](02%20-%20Admin/Claim%20Desk/desk_read_documents_S03.2.md) |
-| Depends on | Auth integration (done; see [`auth_user_setup.md`](auth_user_setup.md)) |
+| Screen docs | [`02 - Admin/Claim Desk/desk_upload_S03.1.md`](../desk_upload_S03.1.md), [`desk_read_documents_S03.2.md`](../desk_read_documents_S03.2.md) |
+| Depends on | Auth integration (done; see [`auth_user_setup.md`](../../../01%20-%20Auth/auth_user_setup.md)) |
 | Status | Planned. Both steps currently show hardcoded demo results. |
 | Last checked against backend | 2026-11-03 (OpenAPI + source of `app/features/f001_ingestion_pipeline`) |
 
@@ -293,7 +293,7 @@ Pick up tasks in order; each line says where it goes. ING-01 to ING-03 can be do
 Do this once, in the backend repo (`D:\projects\sky_life_360_dev`, venv active):
 
 ```powershell
-# 1. An admin login (see auth_user_setup.md)
+# 1. An admin login (see docs/01 - Auth/auth_user_setup.md)
 python -m app.manage list-users --tenant-id HOSP-001
 
 # 2. Allow the tenant to upload for the patient IDs the mock claims use

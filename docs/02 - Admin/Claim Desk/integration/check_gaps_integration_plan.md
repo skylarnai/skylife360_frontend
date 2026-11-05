@@ -1,7 +1,7 @@
 # Check gaps (claim desk step 3) — integration plan
 
 > **Status:** planning · **Branch:** `sashi_dev_frontend` · **Written:** 2026-11-03
-> **Comes after:** Upload (`docs/ingestion_integration_plan.md`) and Read documents (done).
+> **Comes after:** Upload ([`ingestion_integration_plan.md`](ingestion_integration_plan.md)) and Read documents (done).
 > **Ask step:** switched off for now. See §1.
 
 ---

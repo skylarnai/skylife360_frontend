@@ -1,8 +1,8 @@
 # Integrity Check (Claim Desk Step 4/5) — Integration Plan
 
 > **Status:** Planning · **Screen:** S03.5 (`/claims/:claimId/integrity`) · **Role:** Admin (`integrity:view`)  
-> **Comes after:** Check gaps (`docs/check_gaps_integration_plan.md`) · **Precedes:** Approve & submit (`docs/02 - Admin/Claim Desk/desk_approve_submit_S03.6.md`)  
-> **Reference docs:** [`docs/02 - Admin/Claim Desk/desk_integrity_S03.5.md`](docs/02%20-%20Admin/Claim%20Desk/desk_integrity_S03.5.md), [`docs/02 - Admin/claims_worklist_S02.md`](docs/02%20-%20Admin/claims_worklist_S02.md), [`docs/02 - Admin/users_access_S04.md`](docs/02%20-%20Admin/users_access_S04.md)
+> **Comes after:** Check gaps ([`check_gaps_integration_plan.md`](check_gaps_integration_plan.md)) · **Precedes:** Approve & submit ([`desk_approve_submit_S03.6.md`](../desk_approve_submit_S03.6.md))  
+> **Reference docs:** [`docs/02 - Admin/Claim Desk/desk_integrity_S03.5.md`](../desk_integrity_S03.5.md), [`docs/02 - Admin/claims_worklist_S02.md`](../../claims_worklist_S02.md), [`docs/02 - Admin/users_access_S04.md`](../../users_access_S04.md)
 
 ---
 
@@ -33,7 +33,7 @@ Step 5/6: Approve & Submit (Adjudicate flags: approve, false alarm, or reject)
 
 ## 2. Permissions & Role Matrix (from `users_access_S04.md`)
 
-As defined in [`users_access_S04.md`](docs/02%20-%20Admin/users_access_S04.md):
+As defined in [`users_access_S04.md`](../../users_access_S04.md):
 * **Admin (`integrity:view`):** Full access to view integrity findings and fraud signals.
 * **Doctor / Hospital Staff:** **Never see integrity findings**. They only see that a claim is "Under review" or "On hold".
 * The UI displays the security disclaimer banner:

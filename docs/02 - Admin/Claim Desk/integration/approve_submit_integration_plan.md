@@ -1,8 +1,8 @@
 # Approve & Submit (Claim Desk Step 5/6) — Integration Plan
 
 > **Status:** Planning · **Screen:** S03.6 (`/claims/:claimId/approve`) · **Role:** Admin (`claims:approve`, `claims:submit`)  
-> **Comes after:** Integrity check (`docs/integrity_check_integration_plan.md`)  
-> **Reference docs:** [`docs/02 - Admin/Claim Desk/desk_approve_submit_S03.6.md`](docs/02%20-%20Admin/Claim%20Desk/desk_approve_submit_S03.6.md), [`docs/02 - Admin/claims_worklist_S02.md`](docs/02%20-%20Admin/claims_worklist_S02.md), [`docs/02 - Admin/users_access_S04.md`](docs/02%20-%20Admin/users_access_S04.md)
+> **Comes after:** Integrity check ([`integrity_check_integration_plan.md`](integrity_check_integration_plan.md))  
+> **Reference docs:** [`docs/02 - Admin/Claim Desk/desk_approve_submit_S03.6.md`](../desk_approve_submit_S03.6.md), [`docs/02 - Admin/claims_worklist_S02.md`](../../claims_worklist_S02.md), [`docs/02 - Admin/users_access_S04.md`](../../users_access_S04.md)
 
 ---
 
