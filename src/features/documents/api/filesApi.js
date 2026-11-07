@@ -13,7 +13,10 @@ function clean(params) {
 
 export const filesApi = {
   /**
-   * GET /api/v1/files?patient=&type=&status=&limit=&offset= (READY, backend 73c22bb)
+   * GET /api/v1/files?patient=&type=&status=&q=&uploaded_after=&limit=&offset= (READY, backend 73c22bb;
+   *   q and uploaded_after since 203f135)
+   * q: file name, patient ID or name, document type, procedure (case-insensitive, part of a word).
+   * uploaded_after: ISO time; files uploaded at or after it (the to-do picker passes the task's created_at).
    * Scoped to the caller (doctor: granted patients; staff and admins: whole hospital). Newest first.
    * `counts` covers the whole scope and ignores the filters (tiles); `total` counts the filtered rows.
    * 403 UNAUTHORIZED_USER when `patient` is outside a doctor's scope.

@@ -10,15 +10,17 @@ import { formatTableDate } from '@/utils/formatters'
 import { assigneeLabel, getTaskType, resolveErrorMessage } from '../constants'
 import { useResolveTask } from '../hooks/useTasks'
 
-const isNewer = (a, b) => new Date(a).getTime() > new Date(b).getTime()
-
 /** The patient's files uploaded after the task was created (the only ones the backend accepts). */
 function FilePicker({ task, value, onChange, enabled }) {
   const canUpload = usePermission(PERMISSIONS.FILES_UPLOAD)
   const inputRef = useRef(null)
   const upload = useUploadBatch()
-  const { data, isLoading } = useDocuments({ patient: task.user_id }, { enabled })
-  const candidates = (data?.items || []).filter((f) => isNewer(f.uploaded_at, task.created_at))
+  // Same rule as POST /tasks/{id}/resolve: this patient's files uploaded after the task was created.
+  const { data, isLoading } = useDocuments(
+    { patient: task.user_id, uploaded_after: task.created_at, limit: 50 },
+    { enabled },
+  )
+  const candidates = data?.items || []
 
   const handleFiles = (event) => {
     const files = Array.from(event.target.files || [])

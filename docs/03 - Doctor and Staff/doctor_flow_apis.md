@@ -5,7 +5,7 @@
 | Screens | S05 Patient documents · S07 Patient summary · S08 My to-dos |
 | Out of scope this phase | S06 Ask about a patient, the S07 timeline (N4), search inside the text, the suggested insurer reply. All of these need the AI models. |
 | Roles | `VIEWER` (doctor, only patients granted to them) · `MEMBER` (records staff, whole hospital) · `ADMIN` (whole hospital) |
-| Backend checked | `D:\projects\sky_life_360_dev` @ `49913f8` (7 Nov 2026). N1–N3 shipped in `73c22bb`, to-dos N5–N7 in `49913f8`. |
+| Backend checked | `D:\projects\sky_life_360_dev` @ `203f135` (7 Nov 2026). N1–N3 shipped in `73c22bb`, to-dos N5–N7 in `49913f8`. |
 | Frontend status | **Wired.** Every screen calls the real API. The file and patient mocks and the "Showing demo …" notes have been removed. |
 | Dev API panels | `src/constants/doctorFlowApis.js` |
 | Full walkthrough | [end_to_end_claim_flow.md](../end_to_end_claim_flow.md) |
@@ -31,7 +31,7 @@ S05 Patient documents                          S07 Patient summary              
 | Method | Path | Screen | Frontend call | Notes |
 |---|---|---|---|---|
 | GET | `/api/v1/auth/me` | all | `authApi.me` | `role`, `permissions[]`. The UI keeps the backend role (`backendRole`) to tell a doctor (`VIEWER`, scoped) from staff (`MEMBER`, whole hospital). |
-| GET | `/api/v1/files?patient=&type=&status=&limit=&offset=` | S05, S07 rail | `filesApi.listFiles` | `counts` covers the whole scope and ignores the filters (tiles). `status`: `INDEXED`, `EXTRACTION_FAILED`, `DUPLICATE`, `PROCESSING`. `uploaded_by` is `null` for older files. |
+| GET | `/api/v1/files?patient=&type=&status=&q=&uploaded_after=&limit=&offset=` | S05, S07 rail, S08 file picker | `filesApi.listFiles` | S05 pages 25 at a time and sends the search box as `q` (file name, patient ID or name, type, procedure). The to-do file picker sends `uploaded_after=<task.created_at>`. `counts` covers the whole scope and ignores the filters (tiles). `status`: `INDEXED`, `EXTRACTION_FAILED`, `DUPLICATE`, `PROCESSING`. `uploaded_by` is `null` for older files. |
 | GET | `/api/v1/patients?q=&limit=&offset=` | S05, S07, Users | `patientsApi.listPatients` | **`mine=true` is not sent:** the backend always scopes doctors, and `mine=true` would also narrow staff and admins to their own grants. Items: `user_id, name, sex, age, procedure_name, diagnosis{code,name}, treating_doctor, claim_id, claim_stage, admission_date, discharge_date`. Never amounts. |
 | GET | `/api/v1/patients/{user_id}` | S07 | `patientsApi.getPatient` | `403 UNAUTHORIZED_USER` outside the doctor's scope (also for unknown IDs). `404 NOT_FOUND` if unknown for staff and admins. Both show as plain notes. |
 | GET | `/api/v1/files/{file_id}/text?page=` | S05 | `filesApi.getFileText` | One page per call; the UI loads up to 20 pages |
@@ -66,8 +66,6 @@ A doctor with no grants sees empty lists. S05 and S07 then say so and tell the d
 
 - Gap report download for signed-in users (`links` endpoint).
 - Nothing re-runs Check gaps automatically on `READY_TO_RECHECK`.
-- **Requested in [files_filters_backend_request.md](files_filters_backend_request.md):** `GET /files` has no text search (`q`). S05 pages on the server (25 a page) without a search; with a search it filters the newest 200 files in the browser and says so when there are more.
-- `GET /files` has no `uploaded_after`, so the to-do file picker loads the patient's newest 200 files and filters by date in the browser.
 - `assigned_user_ids` on `/auth/me` and `GET /files/{id}/text?all=true` are optional and not built.
 
 ---

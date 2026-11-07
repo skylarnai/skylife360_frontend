@@ -65,7 +65,7 @@ Filters: status Open / Done / All; **Mine** (`assignee=me`: me + my role's pool)
 | GET | `/api/v1/tasks?assignee=&status=&page=&page_size=` | N5 list + badge (`open_count`) |
 | POST | `/api/v1/tasks/{task_id}/resolve` | N6 actions |
 | POST | `/api/v1/ingestion/upload` | Upload a file on DOCUMENT / RE-SCAN cards |
-| GET | `/api/v1/files?patient=` | File picker |
+| GET | `/api/v1/files?patient=&uploaded_after=<task.created_at>` | File picker (only files the resolve accepts) |
 | GET | `/api/v1/claims/gap-reports?status=` | Sent-back claims (`task_count`, `open_task_count`) |
 | GET | `/api/v1/claims/gap-reports/{id}` | Details: `gap_summary`, `tasks[]` |
 | POST | `/api/v1/tasks` | N7, used by S05 **Request re-scan** |

@@ -6,7 +6,7 @@
 export const PATIENT_DOCUMENTS_APIS = [
   [
     'GET',
-    '/api/v1/files?patient=&type=&status=&limit=&offset=',
+    '/api/v1/files?patient=&type=&status=&q=&limit=&offset=',
     'READY',
     'N1 · document list + tile counts (doctor: granted patients only)',
   ],

@@ -6,7 +6,7 @@
 | Endpoint | `GET /api/v1/files` (N1): `router.py` `list_files`, `document_list.py` `list_documents` |
 | Backend checked | `dev@49913f8` (7 Nov 2026) |
 | Screens | S05 Patient documents (table pagination and search) · S08 My to-dos (file picker on DOCUMENT / RE-SCAN cards) |
-| Priority | Medium. The frontend works today with browser-side workarounds, but they are capped at 200 files. |
+| Status | **Done.** Backend `203f135`; frontend wired (S05 sends `q` and pages on the server, the S08 picker sends `uploaded_after`). Checked live: search by name, patient name, patient ID, case, `%`/`_`, combined with `patient`, paging, `uploaded_after`, 422 on a bad date, and a picker file accepted by resolve. |
 | Breaking changes | None. Two new optional query parameters; the response shape is unchanged. |
 
 ---

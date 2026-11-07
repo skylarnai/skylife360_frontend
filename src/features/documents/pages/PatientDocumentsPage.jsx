@@ -17,8 +17,9 @@ import { DocumentsTable } from '../components/DocumentsTable'
 import { useDocuments, useDocumentSearch } from '../hooks/useDocuments'
 
 const PAGE_SIZE = 25
-// GET /files has no text search (`q`): a search filters the newest SEARCH_WINDOW files in the browser.
-// Without a search the table pages on the server (limit / offset).
+// The table pages on the server; the search box is sent as `q` (file name, patient ID or name,
+// type, procedure — backend 203f135). Only when searching inside the text (rag/search, models on)
+// are the newest SEARCH_WINDOW files merged with the text hits in the browser.
 const SEARCH_WINDOW = 200
 
 // Searching inside the text uses POST /rag/search (embeddings): only when the models are on.
@@ -76,13 +77,13 @@ export function PatientDocumentsPage() {
   const debouncedQ = useDebouncedValue(q.trim(), 300)
   const { data: patientsData } = usePatients()
   const patients = useMemo(() => patientsData?.patients || [], [patientsData])
-  const searching = debouncedQ.length > 0
+  const browserSearch = SEARCH_INSIDE && debouncedQ.length > 0
   const [page, setPage] = usePageState([patient, type, status, debouncedQ].join('|'))
   const [lastSelected, setLastSelected] = useState(null)
   const { data, isLoading, isFetching, isError, error, refetch } = useDocuments(
-    searching
+    browserSearch
       ? { patient, type, status, limit: SEARCH_WINDOW }
-      : { patient, type, status, limit: PAGE_SIZE, offset: page * PAGE_SIZE },
+      : { patient, type, status, q: debouncedQ, limit: PAGE_SIZE, offset: page * PAGE_SIZE },
   )
   const { data: ragHits } = useDocumentSearch(SEARCH_INSIDE ? debouncedQ : '', patient)
 
@@ -102,21 +103,25 @@ export function PatientDocumentsPage() {
         const p = patientById.get(f.user_id)
         return { ...f, procedure_name: p?.procedure_name, patient_name: p?.name }
       })
-      .map((f) => ({ ...f, match: findMatch(f, debouncedQ, ragHits) }))
+      .map((f) => ({
+        ...f,
+        // Server search already matched the row; the browser only merges in text hits.
+        match: browserSearch ? findMatch(f, debouncedQ, ragHits) : { ok: true, hit: null },
+      }))
       .filter((f) => f.match.ok)
-  }, [data, patientById, debouncedQ, ragHits])
+  }, [data, patientById, debouncedQ, ragHits, browserSearch])
 
   const allItems = data?.items || []
   const filteredTotal = data?.total ?? 0
-  const pageRows = searching ? rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE) : rows
-  const tableTotal = searching ? rows.length : filteredTotal
+  const pageRows = browserSearch ? rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE) : rows
+  const tableTotal = browserSearch ? rows.length : filteredTotal
   // The selected file may be on another page (or come from a link): keep the last copy.
   const selected =
     allItems.find((f) => f.file_id === selectedId) ||
     (lastSelected?.file_id === selectedId ? lastSelected : null)
   const counts = data?.counts || {}
   const tableNote =
-    searching && filteredTotal > SEARCH_WINDOW
+    browserSearch && filteredTotal > SEARCH_WINDOW
       ? `Search covers the newest ${SEARCH_WINDOW} of ${filteredTotal} documents. Pick a patient or type to narrow it.`
       : null
 

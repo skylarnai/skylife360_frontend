@@ -8,7 +8,7 @@
 | Prototype reference | `viewFiles()`, `fileResults()`, `fileDetail()` |
 | Depends on | S00, S01 |
 | Status | **Wired**: N1 list (25 a page), N2 patients, page text, N7 Request re-scan. Search inside the text only with `VITE_ENABLE_ASK=true`. No mock. |
-| API readiness | READY ([doctor_flow_apis.md](doctor_flow_apis.md)); search by name waits on [files_filters_backend_request.md](files_filters_backend_request.md) |
+| API readiness | READY ([doctor_flow_apis.md](doctor_flow_apis.md)); search is server-side `q` since backend `203f135` ([files_filters_backend_request.md](files_filters_backend_request.md)) |
 
 > **Note:** Sections below were written against the mock (`filesApi.mock.js`, `DemoDataNote`), which has been removed. Current APIs: [doctor_flow_apis.md](doctor_flow_apis.md).
 
