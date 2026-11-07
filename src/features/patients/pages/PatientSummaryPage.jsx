@@ -2,26 +2,26 @@ import { useMemo } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { ApiRail } from '@/components/dev/ApiRail'
 import { PATIENT_SUMMARY_APIS } from '@/constants/doctorFlowApis'
-import { DemoDataNote } from '@/components/common'
-import { CardPad, Chip, ErrorBox, Lbl } from '@/components/ui'
+import { CardPad, Chip, ErrorBox, Lbl, Note } from '@/components/ui'
 import { getClaimStageInfo, getFileStatusInfo } from '@/constants/statusMaps'
 import { useDocuments } from '@/features/documents/hooks/useDocuments'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { formatShortDate } from '@/utils/formatters'
 import { PatientPicker } from '../components/PatientPicker'
-import { usePatient, usePatients, usePatientTimeline } from '../hooks/usePatients'
-import { diagnosisLabel } from '../utils'
+import { usePatient, usePatients } from '../hooks/usePatients'
+import { diagnosisLabel, patientErrorMessage } from '../utils'
 
 const PATIENT_FIRST = 'first'
 
-const docLink = (fileId) => `/documents?file=${encodeURIComponent(fileId)}`
+const docLink = (file) =>
+  `/documents?patient=${encodeURIComponent(file.user_id)}&file=${encodeURIComponent(file.file_id)}`
 
 function PatientHeader({ patient }) {
   const stage = patient.claim_stage ? getClaimStageInfo(patient.claim_stage) : null
   return (
     <div>
       <div className="mono small" style={{ color: 'var(--accent)' }}>
-        {[patient.user_id, patient.sex, patient.age].filter(Boolean).join(' · ')}
+        {[patient.user_id, patient.name, patient.sex, patient.age].filter(Boolean).join(' · ')}
       </div>
       <h3 style={{ fontSize: '20px', margin: '2px 0' }}>
         {patient.procedure_name || 'Procedure not recorded'}
@@ -47,37 +47,6 @@ function PatientHeader({ patient }) {
   )
 }
 
-function Timeline({ userId }) {
-  const { data, isLoading, isError, error, refetch } = usePatientTimeline(userId)
-  if (isLoading) return <div className="small muted">Loading timeline…</div>
-  if (isError) return <ErrorBox message={error?.message} onRetry={refetch} />
-  const events = data?.events || []
-  if (events.length === 0)
-    return <div className="small muted">No dated events found in this patient’s documents yet.</div>
-  return (
-    <ol className="tl">
-      {events.map((e, i) => (
-        <li key={`${e.date}-${e.title}-${i}`}>
-          <time>{formatShortDate(e.date)}</time>
-          <span className="dot" />
-          <div>
-            <b style={{ fontWeight: 600 }}>{e.title}</b>
-            {e.text ? ` · ${e.text}` : ''}
-            {e.source?.original_filename && (
-              <div className="small">
-                <Link to={docLink(e.source.file_id)} style={{ color: 'var(--teal)' }}>
-                  Source: {e.source.original_filename}
-                  {e.source.page_number ? ` · page ${e.source.page_number}` : ''}
-                </Link>
-              </div>
-            )}
-          </div>
-        </li>
-      ))}
-    </ol>
-  )
-}
-
 function PatientDocumentsRail({ userId }) {
   const { data, isLoading } = useDocuments({ patient: userId })
   const files = data?.items || []
@@ -99,7 +68,7 @@ function PatientDocumentsRail({ userId }) {
           >
             <Link
               className="link"
-              to={docLink(f.file_id)}
+              to={docLink(f)}
               style={{ textAlign: 'left', overflowWrap: 'anywhere' }}
             >
               {f.original_filename}
@@ -119,7 +88,12 @@ export function PatientSummaryPage() {
   useDocumentTitle('Patient summary')
   const { patientId } = useParams()
   const navigate = useNavigate()
-  const { data: listData } = usePatients()
+  const {
+    data: listData,
+    isLoading: listLoading,
+    isError: listError,
+    error: listErr,
+  } = usePatients()
   const patients = useMemo(() => listData?.patients || [], [listData])
   // The tab opens /patients/first: redirect to the first patient in the caller's list.
   const isFirst = patientId === PATIENT_FIRST
@@ -127,10 +101,22 @@ export function PatientSummaryPage() {
   const patient = data?.patient
 
   if (isFirst) {
-    return patients.length > 0 ? (
-      <Navigate to={`/patients/${encodeURIComponent(patients[0].user_id)}`} replace />
-    ) : (
-      <CardPad className="muted">Loading your patients…</CardPad>
+    if (patients.length > 0) {
+      return <Navigate to={`/patients/${encodeURIComponent(patients[0].user_id)}`} replace />
+    }
+    if (listError) {
+      return (
+        <CardPad>
+          <ErrorBox message={listErr?.message} />
+        </CardPad>
+      )
+    }
+    return (
+      <CardPad className="muted">
+        {listLoading
+          ? 'Loading your patients…'
+          : 'No patients yet. Doctors see only the patients an admin has granted to them.'}
+      </CardPad>
     )
   }
 
@@ -147,12 +133,13 @@ export function PatientSummaryPage() {
           />
         </div>
 
-        {data?.source === 'mock' && (
-          <DemoDataNote what="patient details" endpoint="GET /api/v1/patients/{user_id}" />
-        )}
-
         {isLoading && <div className="small muted">Loading patient…</div>}
-        {isError && <ErrorBox message={error?.message} onRetry={refetch} />}
+        {isError &&
+          ([403, 404].includes(error?.status) ? (
+            <Note>{patientErrorMessage(error)}</Note>
+          ) : (
+            <ErrorBox message={patientErrorMessage(error)} onRetry={refetch} />
+          ))}
         {!isLoading && !isError && !patient && (
           <div className="muted">
             This patient isn’t in your list. Pick one of your patients above.
@@ -162,8 +149,10 @@ export function PatientSummaryPage() {
         {patient && (
           <>
             <PatientHeader patient={patient} />
-            <Lbl>Timeline · from the patient’s documents</Lbl>
-            <Timeline userId={patient.user_id} />
+            {/* Dated timeline (N4) needs the extraction models: not in this phase. */}
+            <div className="small muted">
+              Open the documents on the right to read the notes, reports and discharge summary.
+            </div>
           </>
         )}
       </CardPad>

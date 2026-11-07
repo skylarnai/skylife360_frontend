@@ -2,11 +2,13 @@ import { Link, useLocation } from 'react-router-dom'
 import { getTabsForRole } from '@/constants/navigation'
 import { useOpenTaskCount } from '@/features/tasks/hooks/useTasks'
 import { useSession } from '@/hooks/useSession'
+import { useSessionStore } from '@/store/sessionStore'
 
 export function RoleTabs() {
   const location = useLocation()
   const { role } = useSession()
-  const tabs = getTabsForRole(role)
+  const permissions = useSessionStore((state) => state.permissions)
+  const tabs = getTabsForRole(role, permissions)
   const todoCount = useOpenTaskCount(tabs.some((tab) => tab.showTodoCount))
 
   return (

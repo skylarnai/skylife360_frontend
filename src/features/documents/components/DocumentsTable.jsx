@@ -3,7 +3,7 @@ import { Chip, DataTable } from '@/components/ui'
 import { getDocTypeLabel, getFileStatusInfo } from '@/constants/statusMaps'
 import { formatTableDate } from '@/utils/formatters'
 
-export function DocumentsTable({ rows, total, loading, query, selectedId, onSelect }) {
+export function DocumentsTable({ rows, loading, query, selectedId, onSelect, footer, note }) {
   if (!loading && rows.length === 0) {
     return (
       <div
@@ -78,11 +78,7 @@ export function DocumentsTable({ rows, total, loading, query, selectedId, onSele
 
   return (
     <div className="stack" style={{ gap: '8px' }}>
-      {!loading && (
-        <div className="small muted">
-          Showing {rows.length} of {total} documents
-        </div>
-      )}
+      {!loading && note && <div className="small muted">{note}</div>}
       <DataTable
         columns={columns}
         rows={rows}
@@ -92,6 +88,7 @@ export function DocumentsTable({ rows, total, loading, query, selectedId, onSele
         selectedRowId={selectedId}
         onRowClick={onSelect}
       />
+      {footer}
     </div>
   )
 }

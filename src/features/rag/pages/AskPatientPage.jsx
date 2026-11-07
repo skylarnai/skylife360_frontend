@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ApiRail } from '@/components/dev/ApiRail'
 import { ASK_PATIENT_APIS } from '@/constants/doctorFlowApis'
-import { ActivityRail, DemoDataNote } from '@/components/common'
+import { ActivityRail } from '@/components/common'
 import { CardPad, ErrorBox } from '@/components/ui'
 import { PatientPicker } from '@/features/patients/components/PatientPicker'
 import { usePatients } from '@/features/patients/hooks/usePatients'
@@ -92,10 +92,6 @@ export function AskPatientPage() {
         <div className="between">
           <h2 style={{ fontSize: '18px' }}>Ask about a patient</h2>
         </div>
-
-        {patientsData?.source === 'mock' && (
-          <DemoDataNote what="patients" endpoint="GET /api/v1/patients" />
-        )}
 
         <div
           style={{

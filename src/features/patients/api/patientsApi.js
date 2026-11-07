@@ -1,40 +1,28 @@
-import { httpClient, withMockFallback } from '@/services/api'
-import { MOCK_PATIENTS, MOCK_TIMELINES } from './patientsApi.mock'
+import { httpClient } from '@/services/api/httpClient'
 
 const enc = encodeURIComponent
 
 export const patientsApi = {
   /**
-   * GET /api/v1/patients?mine=true (NEEDED)
-   * Patients the caller may see (doctor: care team via user_access; staff/admin: whole hospital).
-   * → { total, items: Patient[] }
+   * GET /api/v1/patients?q=&limit=&offset= (READY, backend 73c22bb)
+   * Patients with a claim or uploaded documents. The backend scopes it: a doctor (VIEWER) gets only
+   * the patients granted to them; records staff and admins get the whole hospital.
+   * `mine=true` is NOT sent: it would narrow staff and admins to their own grants.
+   * → { total, items: [{ user_id, name, sex, age, procedure_name, diagnosis: { code, name } | null,
+   *      treating_doctor, claim_id, claim_stage, admission_date, discharge_date }] } (never amounts)
    */
-  async listPatients() {
-    return withMockFallback(
-      async () => (await httpClient.get('/patients', { params: { mine: true } })).data,
-      () => ({ total: MOCK_PATIENTS.length, items: MOCK_PATIENTS }),
-    )
+  async listPatients({ q } = {}) {
+    const params = { limit: 500, ...(q ? { q } : {}) }
+    const { data } = await httpClient.get('/patients', { params })
+    return data
   },
 
   /**
-   * GET /api/v1/patients/{user_id} (NEEDED)
-   * → Patient: sex, age, diagnosis, procedure, treating doctor, dates, claim stage (never amounts)
+   * GET /api/v1/patients/{user_id} (READY)
+   * One patient (same shape). 403 UNAUTHORIZED_USER outside the caller's scope, 404 NOT_FOUND if unknown.
    */
   async getPatient(userId) {
-    return withMockFallback(
-      async () => (await httpClient.get(`/patients/${enc(userId)}`)).data,
-      () => MOCK_PATIENTS.find((p) => p.user_id === userId) || null,
-    )
-  },
-
-  /**
-   * GET /api/v1/patients/{user_id}/timeline (NEEDED)
-   * → { user_id, events: [{ date, title, text, codes?, source: { file_id, original_filename, page_number } }] }
-   */
-  async getTimeline(userId) {
-    return withMockFallback(
-      async () => (await httpClient.get(`/patients/${enc(userId)}/timeline`)).data,
-      () => ({ user_id: userId, events: MOCK_TIMELINES[userId] || [] }),
-    )
+    const { data } = await httpClient.get(`/patients/${enc(userId)}`)
+    return data
   },
 }

@@ -2,12 +2,13 @@ import { useQuery } from '@tanstack/react-query'
 import { ragApi } from '@/features/rag/api/ragApi'
 import { filesApi } from '../api/filesApi'
 
-export function useDocuments(filters = {}) {
+export function useDocuments(filters = {}, { enabled = true } = {}) {
   return useQuery({
     queryKey: ['files', filters],
+    enabled,
     queryFn: () => filesApi.listFiles(filters),
     placeholderData: (previous) => previous,
-    select: ({ data, source }) => ({ ...data, items: data?.items || [], source }),
+    select: (data) => ({ ...data, items: data?.items || [] }),
   })
 }
 

@@ -1,15 +1,101 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import toast from 'react-hot-toast'
 import { Highlight } from '@/components/common'
-import { Button, Chip, CardPad, ErrorBox, Kv, Lbl } from '@/components/ui'
+import { Button, Chip, CardPad, ErrorBox, Kv, Lbl, TextInput } from '@/components/ui'
 import { env } from '@/config/env'
 import { PERMISSIONS } from '@/constants/permissions'
 import { getDocTypeLabel, getFileStatusInfo } from '@/constants/statusMaps'
-import { useCreateTask } from '@/features/tasks/hooks/useTasks'
-import { useActivity } from '@/hooks/useActivity'
 import { usePermission } from '@/hooks/usePermission'
 import { formatTableDate } from '@/utils/formatters'
+import { useCreateTask } from '@/features/tasks/hooks/useTasks'
+import { useActivity } from '@/hooks/useActivity'
 import { useDocumentText } from '../hooks/useDocuments'
+
+/** N7: ask medical records to re-scan this file (a RESCAN to-do for the records staff pool). */
+function RequestRescan({ file }) {
+  const { log } = useActivity()
+  const create = useCreateTask()
+  const [open, setOpen] = useState(false)
+  const [page, setPage] = useState('')
+  const [reason, setReason] = useState('')
+
+  // A file that already has an open re-scan returns that task (200), so a repeat is harmless.
+  if (create.isSuccess) {
+    return (
+      <div className="small" style={{ color: 'var(--ok)' }}>
+        Re-scan requested ({create.data?.title}). Medical records will see it in their to-dos.
+      </div>
+    )
+  }
+
+  if (!open) {
+    return (
+      <div className="row">
+        <Button size="sm" onClick={() => setOpen(true)}>
+          Request re-scan
+        </Button>
+      </div>
+    )
+  }
+
+  const pageNumber = Number.parseInt(page, 10)
+  const validPage = Number.isFinite(pageNumber) && pageNumber >= 1 ? pageNumber : undefined
+  const submit = () => {
+    const title = `Re-scan ${file.original_filename}${validPage ? `, page ${validPage}` : ''}`
+    create.mutate(
+      {
+        type: 'RESCAN',
+        userId: file.user_id,
+        claimId: file.claim_id || undefined,
+        title: title.slice(0, 200),
+        detail: reason.trim() || undefined,
+        fileId: file.file_id,
+        page: validPage,
+      },
+      { onSuccess: () => log(`requested re-scan: ${file.original_filename}`) },
+    )
+  }
+
+  return (
+    <div style={{ display: 'grid', gap: '6px' }}>
+      <Lbl>Request re-scan</Lbl>
+      <div className="row" style={{ gap: '8px', flexWrap: 'wrap' }}>
+        <div style={{ flex: '0 0 110px' }}>
+          <TextInput
+            type="number"
+            min={1}
+            value={page}
+            onChange={(e) => setPage(e.target.value)}
+            placeholder="Page (all)"
+            aria-label="Page to re-scan"
+          />
+        </div>
+        <div style={{ flex: '1 1 200px' }}>
+          <TextInput
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Why, e.g. page is blurred"
+            maxLength={2000}
+            aria-label="Reason"
+          />
+        </div>
+      </div>
+      {create.isError && (
+        <span className="small" style={{ color: 'var(--red)' }}>
+          {create.error?.message || 'Could not request the re-scan.'}
+        </span>
+      )}
+      <div className="row" style={{ gap: '8px' }}>
+        <Button size="sm" variant="pri" disabled={create.isPending} onClick={submit}>
+          {create.isPending ? 'Sending…' : 'Send to medical records'}
+        </Button>
+        <Button size="sm" onClick={() => setOpen(false)}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  )
+}
 
 function DocumentText({ fileId, query }) {
   const { data, isLoading, isError, error, refetch } = useDocumentText(fileId)
@@ -38,9 +124,7 @@ function DocumentText({ fileId, query }) {
 
 export function DocumentDetail({ file, patient, query }) {
   const navigate = useNavigate()
-  const { log } = useActivity()
-  const canRequestRescan = usePermission([PERMISSIONS.FILES_UPLOAD, PERMISSIONS.TASKS_RESOLVE])
-  const createTask = useCreateTask()
+  const canRequestRescan = usePermission([PERMISSIONS.TASKS_RESOLVE, PERMISSIONS.CLAIMS_APPROVE])
 
   if (!file) {
     return (
@@ -61,31 +145,6 @@ export function DocumentDetail({ file, patient, query }) {
     (file.status === 'DUPLICATE' && file.duplicate_of_filename
       ? `Same file as ${file.duplicate_of_filename}, not stored twice`
       : null)
-
-  const requestRescan = () => {
-    createTask.mutate(
-      {
-        type: 'RESCAN',
-        title: `${file.original_filename} couldn’t be read`,
-        description: 'The scan was too blurry to read. Re-scan it and upload it again.',
-        user_id: file.user_id,
-        claim_id: patient?.claim_id || null,
-        source: {
-          file_id: file.file_id,
-          original_filename: file.original_filename,
-          page_number: null,
-        },
-        assignee_role: 'RECORDS_STAFF',
-      },
-      {
-        onSuccess: () => {
-          log(`requested a re-scan of ${file.original_filename}`)
-          toast.success('Re-scan requested from medical records')
-        },
-        onError: (err) => toast.error(err?.message || 'Could not request a re-scan'),
-      },
-    )
-  }
 
   return (
     <CardPad className="stack">
@@ -129,13 +188,14 @@ export function DocumentDetail({ file, patient, query }) {
         </div>
       )}
 
-      {failed && canRequestRescan && (
-        <div className="row">
-          <Button size="sm" variant="warn" loading={createTask.isPending} onClick={requestRescan}>
-            Ask records to re-scan
-          </Button>
+      {failed && (
+        <div className="small muted">
+          This document couldn’t be read. Request a re-scan so medical records upload a clearer
+          copy.
         </div>
       )}
+
+      {canRequestRescan && <RequestRescan key={file.file_id} file={file} />}
 
       {ready && (
         <div className="row">

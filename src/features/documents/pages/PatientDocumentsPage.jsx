@@ -1,19 +1,29 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ApiRail } from '@/components/dev/ApiRail'
 import { PATIENT_DOCUMENTS_APIS } from '@/constants/doctorFlowApis'
-import { ActivityRail, DemoDataNote } from '@/components/common'
-import { ErrorBox, SearchInput, Select, Tile, TileGrid } from '@/components/ui'
+import { ActivityRail } from '@/components/common'
+import { ErrorBox, Note, Pagination, SearchInput, Select, Tile, TileGrid } from '@/components/ui'
+import { env } from '@/config/env'
 import { DOC_TYPE_MAP } from '@/constants/statusMaps'
+import { patientLabel } from '@/features/patients/utils'
 import { usePatients } from '@/features/patients/hooks/usePatients'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+import { usePageState } from '@/hooks/usePageState'
 import { useSession } from '@/hooks/useSession'
 import { DocumentDetail } from '../components/DocumentDetail'
 import { DocumentsTable } from '../components/DocumentsTable'
 import { useDocuments, useDocumentSearch } from '../hooks/useDocuments'
 
-const QUICK_SEARCHES = ['signature', 'histopathology', 'troponin']
+const PAGE_SIZE = 25
+// GET /files has no text search (`q`): a search filters the newest SEARCH_WINDOW files in the browser.
+// Without a search the table pages on the server (limit / offset).
+const SEARCH_WINDOW = 200
+
+// Searching inside the text uses POST /rag/search (embeddings): only when the models are on.
+const SEARCH_INSIDE = env.enableAsk
+const QUICK_SEARCHES = SEARCH_INSIDE ? ['signature', 'histopathology', 'troponin'] : []
 const TYPE_OPTIONS = [
   { value: 'all', label: 'All types' },
   ...['admission', 'lab', 'operative', 'discharge'].map((t) => ({
@@ -26,20 +36,13 @@ const STATUS_OPTIONS = [
   { value: 'INDEXED', label: 'Ready' },
   { value: 'EXTRACTION_FAILED', label: 'Couldn’t read' },
   { value: 'DUPLICATE', label: 'Duplicate copy' },
+  { value: 'PROCESSING', label: 'In progress' },
 ]
 
-/** Best place inside the document that matches `q`: a local passage (mock text) or a rag/search hit. */
+/** Matches `q` against the file's name, patient and type, or a rag/search hit inside its text. */
 function findMatch(file, q, ragHits) {
   if (!q) return { ok: true, hit: null }
   const ql = q.toLowerCase()
-  const local = (file.passages || []).find((p) =>
-    `${p.heading} ${p.content}`.toLowerCase().includes(ql),
-  )
-  if (local)
-    return {
-      ok: true,
-      hit: { page_number: local.page_number, heading: local.heading, content: local.content },
-    }
   const rag = ragHits?.get(file.file_id)
   if (rag) {
     return {
@@ -47,7 +50,13 @@ function findMatch(file, q, ragHits) {
       hit: { page_number: rag.page_number, heading: rag.heading_path, content: rag.content },
     }
   }
-  const meta = [file.original_filename, file.user_id, file.classification_type, file.procedure_name]
+  const meta = [
+    file.original_filename,
+    file.user_id,
+    file.patient_name,
+    file.classification_type,
+    file.procedure_name,
+  ]
     .filter(Boolean)
     .join(' ')
     .toLowerCase()
@@ -56,7 +65,7 @@ function findMatch(file, q, ragHits) {
 
 export function PatientDocumentsPage() {
   useDocumentTitle('Patient documents')
-  const { isAdmin } = useSession()
+  const { isScopedToGrants } = useSession()
   const [params, setParams] = useSearchParams()
   const q = params.get('q') || ''
   const patient = params.get('patient') || 'all'
@@ -67,8 +76,15 @@ export function PatientDocumentsPage() {
   const debouncedQ = useDebouncedValue(q.trim(), 300)
   const { data: patientsData } = usePatients()
   const patients = useMemo(() => patientsData?.patients || [], [patientsData])
-  const { data, isLoading, isError, error, refetch } = useDocuments({ patient, type, status })
-  const { data: ragHits } = useDocumentSearch(debouncedQ, patient)
+  const searching = debouncedQ.length > 0
+  const [page, setPage] = usePageState([patient, type, status, debouncedQ].join('|'))
+  const [lastSelected, setLastSelected] = useState(null)
+  const { data, isLoading, isFetching, isError, error, refetch } = useDocuments(
+    searching
+      ? { patient, type, status, limit: SEARCH_WINDOW }
+      : { patient, type, status, limit: PAGE_SIZE, offset: page * PAGE_SIZE },
+  )
+  const { data: ragHits } = useDocumentSearch(SEARCH_INSIDE ? debouncedQ : '', patient)
 
   const setParam = (key, value) => {
     const next = new URLSearchParams(params)
@@ -82,20 +98,35 @@ export function PatientDocumentsPage() {
   const rows = useMemo(() => {
     const items = data?.items || []
     return items
-      .map((f) => ({ ...f, procedure_name: patientById.get(f.user_id)?.procedure_name }))
+      .map((f) => {
+        const p = patientById.get(f.user_id)
+        return { ...f, procedure_name: p?.procedure_name, patient_name: p?.name }
+      })
       .map((f) => ({ ...f, match: findMatch(f, debouncedQ, ragHits) }))
       .filter((f) => f.match.ok)
   }, [data, patientById, debouncedQ, ragHits])
 
   const allItems = data?.items || []
-  const selected = allItems.find((f) => f.file_id === selectedId) || null
+  const filteredTotal = data?.total ?? 0
+  const pageRows = searching ? rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE) : rows
+  const tableTotal = searching ? rows.length : filteredTotal
+  // The selected file may be on another page (or come from a link): keep the last copy.
+  const selected =
+    allItems.find((f) => f.file_id === selectedId) ||
+    (lastSelected?.file_id === selectedId ? lastSelected : null)
   const counts = data?.counts || {}
+  const tableNote =
+    searching && filteredTotal > SEARCH_WINDOW
+      ? `Search covers the newest ${SEARCH_WINDOW} of ${filteredTotal} documents. Pick a patient or type to narrow it.`
+      : null
 
   return (
     <div className="stack">
       <div className="between">
         <h2 style={{ fontSize: '20px' }}>Patient documents</h2>
-        <span className="small muted">{isAdmin ? 'Whole hospital' : 'Your patients only'}</span>
+        <span className="small muted">
+          {isScopedToGrants ? 'Your patients only' : 'Whole hospital'}
+        </span>
       </div>
 
       <TileGrid>
@@ -105,7 +136,12 @@ export function PatientDocumentsPage() {
         <Tile label="patients" value={counts.patients ?? patients.length} />
       </TileGrid>
 
-      {data?.source === 'mock' && <DemoDataNote what="documents" endpoint="GET /api/v1/files" />}
+      {isScopedToGrants && !isLoading && !isError && (counts.documents ?? 0) === 0 && (
+        <Note>
+          No documents yet. You only see the patients an admin has granted to you. If you expected
+          some, ask an admin to grant you your patients.
+        </Note>
+      )}
 
       <div className="cols">
         <div className="main stack">
@@ -118,9 +154,17 @@ export function PatientDocumentsPage() {
             }}
           >
             <SearchInput
-              label="Search documents by name, patient or anything written in them"
+              label={
+                SEARCH_INSIDE
+                  ? 'Search documents by name, patient or anything written in them'
+                  : 'Search documents by file name, patient or type'
+              }
               className="col-span-full"
-              placeholder="e.g. signature, troponin, SYN-P-1103, cataract"
+              placeholder={
+                SEARCH_INSIDE
+                  ? 'e.g. signature, troponin, SYN-P-1103'
+                  : 'e.g. discharge, SYN-P-1103'
+              }
               value={q}
               onChange={(e) => setParam('q', e.target.value)}
             />
@@ -132,7 +176,7 @@ export function PatientDocumentsPage() {
                 { value: 'all', label: 'All patients' },
                 ...patients.map((p) => ({
                   value: p.user_id,
-                  label: `${p.user_id} · ${p.procedure_name || ''}`,
+                  label: patientLabel(p),
                 })),
               ]}
             />
@@ -148,32 +192,47 @@ export function PatientDocumentsPage() {
               onChange={(e) => setParam('status', e.target.value)}
               options={STATUS_OPTIONS}
             />
-            <div className="row" style={{ gap: '6px', alignSelf: 'end' }}>
-              <span className="small muted">Try:</span>
-              {QUICK_SEARCHES.map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  className="qbtn"
-                  style={{ minHeight: '36px', padding: '4px 10px', fontSize: '13px' }}
-                  onClick={() => setParam('q', t)}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
+            {QUICK_SEARCHES.length > 0 && (
+              <div className="row" style={{ gap: '6px', alignSelf: 'end' }}>
+                <span className="small muted">Try:</span>
+                {QUICK_SEARCHES.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    className="qbtn"
+                    style={{ minHeight: '36px', padding: '4px 10px', fontSize: '13px' }}
+                    onClick={() => setParam('q', t)}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {isError ? (
             <ErrorBox message={error?.message} onRetry={refetch} />
           ) : (
             <DocumentsTable
-              rows={rows}
-              total={allItems.length}
+              rows={pageRows}
               loading={isLoading}
               query={debouncedQ}
               selectedId={selectedId}
-              onSelect={(row) => setParam('file', row.file_id)}
+              note={tableNote}
+              onSelect={(row) => {
+                setLastSelected(row)
+                setParam('file', row.file_id)
+              }}
+              footer={
+                <Pagination
+                  page={page}
+                  pageSize={PAGE_SIZE}
+                  total={tableTotal}
+                  disabled={isFetching}
+                  onChange={setPage}
+                  noun="documents"
+                />
+              }
             />
           )}
         </div>

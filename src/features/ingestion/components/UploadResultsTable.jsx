@@ -1,4 +1,5 @@
-import { Button, Chip, DataTable, Tile, TileGrid } from '@/components/ui'
+import { Button, Chip, DataTable, Pagination, Tile, TileGrid } from '@/components/ui'
+import { usePageState } from '@/hooks/usePageState'
 import { toUploadRows, toUploadTiles } from '../utils/fileResultView'
 
 const BASE_COLUMNS = [
@@ -40,6 +41,8 @@ const BASE_COLUMNS = [
  * Count tiles + per-file results for a claim's documents (or one upload batch).
  * Pass onOpen / onRemove to show the row actions.
  */
+const PAGE_SIZE = 25
+
 export function UploadResultsTable({
   batch,
   loading = false,
@@ -50,6 +53,8 @@ export function UploadResultsTable({
 }) {
   const tiles = toUploadTiles(batch?.counts)
   const rows = toUploadRows(batch?.files)
+  const [page, setPage] = usePageState(batch?.batch_id || '')
+  const pageRows = rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
   const columns =
     onOpen || onRemove
@@ -59,7 +64,10 @@ export function UploadResultsTable({
             key: 'actions',
             header: '',
             render: (row) => (
-              <div className="row" style={{ gap: '6px', flexWrap: 'nowrap', justifyContent: 'flex-end' }}>
+              <div
+                className="row"
+                style={{ gap: '6px', flexWrap: 'nowrap', justifyContent: 'flex-end' }}
+              >
                 {onOpen && row.canOpen && (
                   <Button size="sm" loading={openingId === row.id} onClick={() => onOpen(row)}>
                     Open
@@ -96,10 +104,17 @@ export function UploadResultsTable({
       </TileGrid>
       <DataTable
         columns={columns}
-        rows={rows}
+        rows={pageRows}
         loading={loading}
         emptyMessage="No documents on this claim yet."
         minWidth={onOpen || onRemove ? 760 : 640}
+      />
+      <Pagination
+        page={page}
+        pageSize={PAGE_SIZE}
+        total={rows.length}
+        onChange={setPage}
+        noun="files"
       />
     </>
   )

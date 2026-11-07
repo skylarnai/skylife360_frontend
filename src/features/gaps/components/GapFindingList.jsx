@@ -1,4 +1,5 @@
 import { Chip, Pill } from '@/components/ui'
+import { formatTableDate } from '@/utils/formatters'
 
 /**
  * Renders the Gap Check Outcome Banner, Identity Status, and categorized findings list (GAP-05).
@@ -23,6 +24,7 @@ export function GapFindingList({ gapRun, identityCheck }) {
   }
 
   const findings = gapRun.findings || []
+  const fixedCount = findings.filter((f) => f.fix_status === 'FIXED').length
 
   return (
     <div style={{ display: 'grid', gap: '12px' }}>
@@ -38,8 +40,8 @@ export function GapFindingList({ gapRun, identityCheck }) {
               identityCheck.status === 'MATCH'
                 ? 'var(--soft)'
                 : identityCheck.status === 'MISMATCH'
-                ? 'var(--red-bg)'
-                : 'var(--surface)',
+                  ? 'var(--red-bg)'
+                  : 'var(--surface)',
             color: identityCheck.status === 'MISMATCH' ? 'var(--red)' : 'var(--fg)',
             border: `1px solid ${identityCheck.status === 'MISMATCH' ? 'var(--red)' : 'var(--line)'}`,
           }}
@@ -48,8 +50,8 @@ export function GapFindingList({ gapRun, identityCheck }) {
           {identityCheck.status === 'MATCH'
             ? 'Patient details in documents match policy subscriber.'
             : identityCheck.status === 'MISMATCH'
-            ? 'Patient in documents does NOT match the policy subscriber (check Name / DOB).'
-            : 'Patient identity could not be verified in documents.'}
+              ? 'Patient in documents does NOT match the policy subscriber (check Name / DOB).'
+              : 'Patient identity could not be verified in documents.'}
         </div>
       )}
 
@@ -58,7 +60,16 @@ export function GapFindingList({ gapRun, identityCheck }) {
         <Pill tone={bannerTone}>{bannerText}</Pill>
         {softCount > 0 && hardCount > 0 && <Pill tone="amb">{softCount} to fix</Pill>}
         <Pill tone="teal">{passedCount} passed</Pill>
+        {fixedCount > 0 && <Pill tone="ok">{fixedCount} fixed by the hospital</Pill>}
       </div>
+
+      {fixedCount > 0 && (
+        <div className="small muted">
+          The hospital has fixed {fixedCount} of {findings.length}{' '}
+          {findings.length === 1 ? 'gap' : 'gaps'} since this check. Re-run the check on the new
+          documents to clear them and build a new packet.
+        </div>
+      )}
 
       {/* Findings List */}
       {findings.length === 0 ? (
@@ -68,12 +79,13 @@ export function GapFindingList({ gapRun, identityCheck }) {
       ) : (
         findings.map((f, idx) => {
           const isHard = f.gap_type === 'hard' || f.action === 'reject'
+          const isFixed = f.fix_status === 'FIXED'
           const tone = isHard ? 'red' : f.action === 'require_preauth' ? 'plum' : 'amb'
           const chipLabel = isHard
             ? 'BLOCKS CLAIM'
             : f.action === 'require_preauth'
-            ? 'NEEDS PRE-AUTH'
-            : 'SHOULD FIX'
+              ? 'NEEDS PRE-AUTH'
+              : 'SHOULD FIX'
 
           return (
             <div
@@ -86,15 +98,27 @@ export function GapFindingList({ gapRun, identityCheck }) {
                 gap: '10px',
                 alignItems: 'flex-start',
                 background: 'var(--panel)',
+                opacity: isFixed ? 0.75 : 1,
               }}
             >
-              <Chip tone={tone}>{chipLabel}</Chip>
+              <div style={{ display: 'grid', gap: '4px', justifyItems: 'start' }}>
+                <Chip tone={tone}>{chipLabel}</Chip>
+                {isFixed && <Chip tone="ok">FIXED</Chip>}
+              </div>
               <div style={{ display: 'grid', gap: '3px', minWidth: 0, flex: 1 }}>
-                <b style={{ fontSize: '14.5px' }}>{f.rule_key || f.reason_code || 'Guideline Gap'}</b>
+                <b style={{ fontSize: '14.5px' }}>
+                  {f.rule_key || f.reason_code || 'Guideline Gap'}
+                </b>
                 <span className="small muted">{f.description}</span>
                 {f.remediation && (
                   <span className="small" style={{ color: 'var(--accent)', fontWeight: 500 }}>
                     Fix: {f.remediation}
+                  </span>
+                )}
+                {isFixed && (
+                  <span className="small" style={{ color: 'var(--ok)' }}>
+                    Fixed by the hospital{f.fixed_at ? ` on ${formatTableDate(f.fixed_at)}` : ''}
+                    {f.fix_note ? ` · “${f.fix_note}”` : ''}
                   </span>
                 )}
                 {f.page_number && (
@@ -113,4 +137,3 @@ export function GapFindingList({ gapRun, identityCheck }) {
     </div>
   )
 }
-

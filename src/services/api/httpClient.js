@@ -33,9 +33,7 @@ export function generateUUID() {
 // In development, use relative prefix to route through Vite proxy and avoid browser CORS restrictions
 const resolvedBaseUrl =
   import.meta.env.DEV &&
-  (!env.apiBaseUrl ||
-    env.apiBaseUrl.includes('localhost') ||
-    env.apiBaseUrl.includes('127.0.0.1'))
+  (!env.apiBaseUrl || env.apiBaseUrl.includes('localhost') || env.apiBaseUrl.includes('127.0.0.1'))
     ? env.apiPrefix
     : `${env.apiBaseUrl}${env.apiPrefix}`
 
@@ -67,17 +65,14 @@ httpClient.interceptors.request.use((config) => {
 
   const upperMethod = method.toUpperCase()
   const fullUrl = `${config.baseURL || ''}${config.url || ''}`
-  console.log(
-    `%c[API Request] ${upperMethod} ${fullUrl}`,
-    'color: #1C84B0; font-weight: 600;',
-    {
+  if (import.meta.env.DEV)
+    console.log(`%c[API Request] ${upperMethod} ${fullUrl}`, 'color: #1C84B0; font-weight: 600;', {
       url: fullUrl,
       method: upperMethod,
       params: config.params,
       data: config.data,
       headers: config.headers,
-    }
-  )
+    })
 
   return config
 })
@@ -86,14 +81,15 @@ httpClient.interceptors.response.use(
   (response) => {
     const upperMethod = String(response.config?.method || 'get').toUpperCase()
     const fullUrl = `${response.config?.baseURL || ''}${response.config?.url || ''}`
-    console.log(
-      `%c[API Response] ${response.status} ${upperMethod} ${fullUrl}`,
-      'color: #17663F; font-weight: 600;',
-      {
-        status: response.status,
-        data: response.data,
-      }
-    )
+    if (import.meta.env.DEV)
+      console.log(
+        `%c[API Response] ${response.status} ${upperMethod} ${fullUrl}`,
+        'color: #17663F; font-weight: 600;',
+        {
+          status: response.status,
+          data: response.data,
+        },
+      )
     return response
   },
   (error) => {
@@ -110,7 +106,7 @@ httpClient.interceptors.response.use(
         code: apiError.code,
         message: apiError.message,
         details: apiError.details,
-      }
+      },
     )
 
     // A 401 from login / MFA / password endpoints means bad credentials or code, not an
@@ -129,11 +125,11 @@ httpClient.interceptors.response.use(
         window.dispatchEvent(
           new CustomEvent('skyclaims:unauthorized', {
             detail: { from: returnPath },
-          })
+          }),
         )
       }
     }
 
     return Promise.reject(apiError)
-  }
+  },
 )

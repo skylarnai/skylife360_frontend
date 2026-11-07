@@ -1,50 +1,56 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { tasksApi } from '../api/tasksApi'
 
-const TASKS_KEY = ['tasks', 'mine']
+/** Every tasks query starts with this key, so one invalidation refreshes the list and the badge. */
+export const TASKS_KEY = ['tasks']
 
-export function useTasks() {
+/** N5: the caller's to-dos. */
+export function useTasks({ assignee = 'me', status = 'OPEN', page = 1, pageSize = 20 } = {}) {
   return useQuery({
-    queryKey: TASKS_KEY,
-    queryFn: () => tasksApi.listMyTasks(),
-    select: ({ data, source }) => {
-      const items = [...(data?.items || [])].sort((a, b) => {
-        if (a.status !== b.status) return a.status === 'OPEN' ? -1 : 1
-        return String(a.due_at || '').localeCompare(String(b.due_at || ''))
-      })
-      return { items, source }
-    },
+    queryKey: [...TASKS_KEY, 'list', assignee, status, page, pageSize],
+    queryFn: () => tasksApi.list({ assignee, status, page, pageSize }),
+    placeholderData: (previous) => previous,
   })
 }
 
-/** Open to-do count for the tab badge. Shares the cache with useTasks. */
+/** Tab badge: `open_count` of the caller's own to-dos (assigned to them or their role's pool). */
 export function useOpenTaskCount(enabled = true) {
   const { data } = useQuery({
-    queryKey: TASKS_KEY,
-    queryFn: () => tasksApi.listMyTasks(),
+    queryKey: [...TASKS_KEY, 'count'],
+    queryFn: () => tasksApi.list({ assignee: 'me', status: 'OPEN', page: 1, pageSize: 1 }),
     enabled,
     staleTime: 60_000,
-    select: ({ data: d }) => (d?.items || []).filter((t) => t.status === 'OPEN').length,
+    select: (d) => d?.open_count ?? 0,
   })
   return data ?? 0
 }
 
-export function useResolveTask() {
+function useRefreshAfterTaskChange() {
   const queryClient = useQueryClient()
+  return () => {
+    queryClient.invalidateQueries({ queryKey: TASKS_KEY })
+    // Resolving updates the gap report (task counts, RESOLVED) and the gap findings (FIXED).
+    queryClient.invalidateQueries({ queryKey: ['gap-inbox'] })
+    queryClient.invalidateQueries({ queryKey: ['gap-report'] })
+    queryClient.invalidateQueries({ queryKey: ['gaps-run'] })
+  }
+}
+
+/** N6: resolve a task. On 409 TASK_ALREADY_RESOLVED the list is refreshed too. */
+export function useResolveTask() {
+  const refresh = useRefreshAfterTaskChange()
   return useMutation({
-    mutationFn: ({ taskId, note, reply }) => tasksApi.resolveTask(taskId, { note, reply }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
-      // A resolved to-do can close a gap on the claim desk (S03.4).
-      queryClient.invalidateQueries({ queryKey: ['gaps'] })
-    },
+    mutationFn: ({ taskId, note, reply, fileId }) =>
+      tasksApi.resolve(taskId, { note, reply, fileId }),
+    onSettled: refresh,
   })
 }
 
+/** N7: create a task (S05 Request re-scan). */
 export function useCreateTask() {
-  const queryClient = useQueryClient()
+  const refresh = useRefreshAfterTaskChange()
   return useMutation({
-    mutationFn: (body) => tasksApi.createTask(body),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
+    mutationFn: (body) => tasksApi.create(body),
+    onSuccess: refresh,
   })
 }

@@ -3,10 +3,10 @@ import { patientsApi } from '../api/patientsApi'
 
 export function usePatients() {
   return useQuery({
-    queryKey: ['patients', 'mine'],
+    queryKey: ['patients', 'list'],
     queryFn: () => patientsApi.listPatients(),
     staleTime: 5 * 60_000,
-    select: ({ data, source }) => ({ patients: data?.items || [], source }),
+    select: (data) => ({ patients: data?.items || [], total: data?.total ?? 0 }),
   })
 }
 
@@ -15,20 +15,8 @@ export function usePatient(userId) {
     queryKey: ['patients', userId],
     queryFn: () => patientsApi.getPatient(userId),
     enabled: Boolean(userId),
-    select: ({ data, source }) => ({ patient: data, source }),
-  })
-}
-
-export function usePatientTimeline(userId) {
-  return useQuery({
-    queryKey: ['patients', userId, 'timeline'],
-    queryFn: () => patientsApi.getTimeline(userId),
-    enabled: Boolean(userId),
-    select: ({ data, source }) => {
-      const events = [...(data?.events || [])].sort((a, b) =>
-        String(a.date).localeCompare(String(b.date)),
-      )
-      return { events, source }
-    },
+    // 403 (out of scope) and 404 (unknown) are answers, not glitches: don't retry them.
+    retry: (count, error) => ![403, 404].includes(error?.status) && count < 2,
+    select: (data) => ({ patient: data }),
   })
 }
