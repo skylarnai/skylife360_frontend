@@ -15,10 +15,20 @@ const REVIEW_CODE_LABELS = {
   DOCUMENT_IDENTITY_MISMATCH: 'The documents name a different patient',
 }
 
-/** "INTEGRITY_HARD_FAIL:EXACT_DUPE" -> "Integrity check failed: Duplicate documents" */
+// Users without integrity:view get these codes without the ":<CHECK>" suffix (the check name is hidden).
+const INTEGRITY_CODES_WITHOUT_CHECK = {
+  INTEGRITY_HARD_FAIL: 'An integrity check needs attention',
+  INTEGRITY_SOFT_WARN: 'An integrity check needs attention',
+}
+
+/**
+ * "INTEGRITY_HARD_FAIL:EXACT_DUPE" -> "Integrity check failed: Duplicate documents"
+ * "INTEGRITY_HARD_FAIL" (no integrity:view) -> "An integrity check needs attention"
+ */
 export function getReviewCodeLabel(code) {
   if (!code) return ''
   const [base, detail] = String(code).split(':')
+  if (!detail && INTEGRITY_CODES_WITHOUT_CHECK[base]) return INTEGRITY_CODES_WITHOUT_CHECK[base]
   const label = REVIEW_CODE_LABELS[base] || base
   return detail ? `${label}: ${getIntegrityCheckLabel(detail)}` : label
 }

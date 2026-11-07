@@ -13,7 +13,9 @@ import { SubmissionTracker } from '@/features/review/components/SubmissionTracke
 import { reviewTaskQueryKey, useReviewTask } from '@/features/review/hooks/useReviewTask'
 import { useSubmission } from '@/features/review/hooks/useSubmission'
 import { REVIEW_STAGE_INTEGRITY } from '@/features/review/utils/reviewLabels'
+import { PERMISSIONS } from '@/constants/permissions'
 import { useActivity } from '@/hooks/useActivity'
+import { usePermission } from '@/hooks/usePermission'
 import { useSession } from '@/hooks/useSession'
 import { useClaimDesk } from '../hooks/useClaimDesk'
 
@@ -34,6 +36,12 @@ export function ApproveSubmitStep() {
   const { log } = useActivity()
   const { claim, desk, updateDesk } = useClaimDesk(claimId)
 
+  // The backend enforces these (403 INSUFFICIENT_PERMISSIONS); the UI only hides what would fail.
+  const canApprove = usePermission(PERMISSIONS.CLAIMS_APPROVE)
+  const canClearIntegrity = usePermission(PERMISSIONS.INTEGRITY_CLEAR)
+  const canSubmit = usePermission(PERMISSIONS.CLAIMS_SUBMIT)
+  const canViewIntegrity = usePermission(PERMISSIONS.INTEGRITY_VIEW)
+
   // Retrieve batch and intake IDs from URL searchParams or desk state
   const batchId = searchParams.get('batch') || desk.batchId
   const intakeId = searchParams.get('intake') || desk.intakeId
@@ -44,7 +52,8 @@ export function ApproveSubmitStep() {
 
   const integrityRunId = intakeQuery.data?.integrity_run_id || desk.integrityRunId
   const packetId = intakeQuery.data?.packet_id || desk.packetId
-  const integrityRunQuery = useIntegrityRun(integrityRunId)
+  // Integrity runs need integrity:view; without it the task alone drives this step.
+  const integrityRunQuery = useIntegrityRun(canViewIntegrity ? integrityRunId : null)
   const integrityStatus = integrityRunQuery.data?.status
 
   // The intake's pipeline view says where the claim is now (review task, submission).
@@ -53,10 +62,9 @@ export function ApproveSubmitStep() {
   const reviewTaskId = pipeline.review?.task_id || openedTaskId || desk.reviewTaskId || null
 
   // Hand-off returned by the decision (review_auto_handoff): submission queued or gap report sent.
-  const [handoff, setHandoff] = useState(null)
+  // After a reload it comes back on the task (GET /reviews/{id} -> handoff).
+  const [localHandoff, setLocalHandoff] = useState(null)
   const [localSubmissionId, setLocalSubmissionId] = useState(null)
-  const submissionId =
-    localSubmissionId || handoff?.submission_id || pipeline.submission?.submission_id || desk.submissionId || null
 
   const {
     task,
@@ -72,6 +80,16 @@ export function ApproveSubmitStep() {
     isClearingIntegrity,
     clearIntegrityError,
   } = useReviewTask(reviewTaskId)
+
+  const handoff = localHandoff || task?.handoff || null
+  const submissionId =
+    localSubmissionId ||
+    handoff?.submission_id ||
+    pipeline.submission?.submission_id ||
+    desk.submissionId ||
+    null
+  // Latest gap report for the packet (GET /claims/intake/{id} -> pipeline.gap_report), kept across reloads.
+  const gapReport = pipeline.gap_report || null
 
   const {
     submission,
@@ -110,7 +128,7 @@ export function ApproveSubmitStep() {
   // Document counts come from the batch; everything the backend enforces comes from the task.
   const files = batchQuery.data?.files || []
   const verifiedDocCount = files.filter(
-    (f) => f.status === 'INGESTED' && !f.is_archive && f.extraction?.status === 'INDEXED'
+    (f) => f.status === 'INGESTED' && !f.is_archive && f.extraction?.status === 'INDEXED',
   ).length
   const totalDocCount = files.filter((f) => !f.is_archive).length
 
@@ -121,7 +139,8 @@ export function ApproveSubmitStep() {
   const integrityPending = task?.stage === REVIEW_STAGE_INTEGRITY
 
   const reviewerName = user?.name || 'the reviewer'
-  const payerName = claim?.payer_name || submission?.payer_code || handoff?.payer_code || 'the payer'
+  const payerName =
+    claim?.payer_name || submission?.payer_code || handoff?.payer_code || 'the payer'
 
   const refreshIntake = () => {
     if (intakeId) queryClient.invalidateQueries({ queryKey: intakeQueryKey(intakeId) })
@@ -129,33 +148,49 @@ export function ApproveSubmitStep() {
 
   const handleClearIntegrity = async (rationale) => {
     try {
-      await clearIntegrityAsync({ taskId: reviewTaskId, payload: { version: task.version, rationale } })
+      await clearIntegrityAsync({
+        taskId: reviewTaskId,
+        payload: { version: task.version, rationale },
+      })
       log('cleared the integrity flags for approval')
     } catch {
       // Shown via clearIntegrityError
     }
   }
 
-  const handleConfirmDecision = async ({ decision, rationale, false_positive_checks, gap_report_recipients }) => {
+  const handleConfirmDecision = async ({
+    decision,
+    rationale,
+    false_positive_checks,
+    gap_report_recipients,
+  }) => {
     try {
       const res = await adjudicateAsync({
         taskId: reviewTaskId,
-        payload: { version: task.version, decision, rationale, false_positive_checks, gap_report_recipients },
+        payload: {
+          version: task.version,
+          decision,
+          rationale,
+          false_positive_checks,
+          gap_report_recipients,
+        },
       })
       const nextHandoff = res?.handoff || null
-      setHandoff(nextHandoff)
+      setLocalHandoff(nextHandoff)
       updateDesk({
         decision,
         note: rationale || '',
-        ...(nextHandoff?.submission_id ? { submitted: true, submissionId: nextHandoff.submission_id } : {}),
+        ...(nextHandoff?.submission_id
+          ? { submitted: true, submissionId: nextHandoff.submission_id }
+          : {}),
       })
       refreshIntake()
       log(
         decision === 'FALSE_POSITIVE'
           ? 'approved the claim (integrity warning marked false alarm)'
           : decision === 'APPROVED'
-          ? 'approved the claim'
-          : 'sent the claim back to the hospital'
+            ? 'approved the claim'
+            : 'sent the claim back to the hospital',
       )
       if (nextHandoff?.action === 'submitted') log(`queued the claim for ${payerName}`)
     } catch {
@@ -187,7 +222,9 @@ export function ApproveSubmitStep() {
   const header = (
     <div className="between">
       <h2 style={{ fontSize: '18px' }}>Approve and submit</h2>
-      <span className="small muted">A person signs off every claim before it goes to the payer</span>
+      <span className="small muted">
+        A person signs off every claim before it goes to the payer
+      </span>
     </div>
   )
 
@@ -213,17 +250,23 @@ export function ApproveSubmitStep() {
           <ErrorBox message={loadError.message || 'Could not load the review task.'} />
         ) : (
           <div className="small muted">
-            {isOpeningTask || isLoadingTask || intakeQuery.isLoading ? 'Loading the review…' : 'Waiting for the claim packet…'}
+            {isOpeningTask || isLoadingTask || intakeQuery.isLoading
+              ? 'Loading the review…'
+              : 'Waiting for the claim packet…'}
           </div>
         )}
       </>
     )
   }
 
-  const currentDecision = desk.decision || task.decision
+  const currentDecision = desk.decision || task.decision || handoff?.decision || null
   const isApproved = currentDecision === 'APPROVED' || currentDecision === 'FALSE_POSITIVE'
-  const handoffNeedsManualSubmit = !handoff || handoff.action === 'failed' || handoff.action === 'skipped'
-  const showSubmitButton = isApproved && !submissionId && handoffNeedsManualSubmit
+  // Manual submit only when the auto hand-off failed or was skipped, or never ran (auto hand-off off).
+  const handoffNeedsManualSubmit =
+    !handoff || handoff.action === 'failed' || handoff.action === 'skipped'
+  const showSubmitButton = isApproved && !submissionId && handoffNeedsManualSubmit && canSubmit
+  const submitBlockedByPermission =
+    isApproved && !submissionId && handoffNeedsManualSubmit && !canSubmit
 
   return (
     <>
@@ -245,10 +288,11 @@ export function ApproveSubmitStep() {
             blockers={blockers}
             flags={flags}
             integrityChecks={integrityChecks}
+            canViewIntegrity={canViewIntegrity}
           />
 
           <div style={{ display: 'grid', gap: '16px' }}>
-            {integrityPending && (
+            {integrityPending && canClearIntegrity && (
               <IntegrityClearanceForm
                 integrityFlag={task.integrity_flag}
                 integrityChecks={integrityChecks}
@@ -259,18 +303,32 @@ export function ApproveSubmitStep() {
               />
             )}
 
-            <AdjudicationForm
-              // Remount when the stage changes so the default choice follows the new state.
-              key={`${task.task_id}:${task.stage}`}
-              blockers={blockers}
-              flags={flags}
-              integrityChecks={integrityChecks}
-              minChars={minChars}
-              integrityPending={integrityPending}
-              onSubmit={handleConfirmDecision}
-              loading={isAdjudicating}
-              error={adjudicateError}
-            />
+            {integrityPending && !canClearIntegrity && (
+              <Note tone="plum">
+                The integrity flags must be cleared by someone with the integrity:clear permission
+                before this claim can be approved.
+              </Note>
+            )}
+
+            {canApprove ? (
+              <AdjudicationForm
+                // Remount when the stage changes so the default choice follows the new state.
+                key={`${task.task_id}:${task.stage}`}
+                blockers={blockers}
+                flags={flags}
+                integrityChecks={integrityChecks}
+                minChars={minChars}
+                integrityPending={integrityPending}
+                onSubmit={handleConfirmDecision}
+                loading={isAdjudicating}
+                error={adjudicateError}
+              />
+            ) : (
+              <Note>
+                You can see this review, but only someone with the claims:approve permission can
+                decide it.
+              </Note>
+            )}
           </div>
         </div>
       ) : (
@@ -281,8 +339,8 @@ export function ApproveSubmitStep() {
                 {currentDecision === 'FALSE_POSITIVE'
                   ? `Approved by ${reviewerName} · integrity warning marked as a false alarm`
                   : currentDecision === 'APPROVED'
-                  ? `Approved by ${reviewerName}`
-                  : `Sent back by ${reviewerName}`}
+                    ? `Approved by ${reviewerName}`
+                    : `Sent back by ${reviewerName}`}
               </Pill>
             </div>
 
@@ -292,13 +350,25 @@ export function ApproveSubmitStep() {
               </div>
             )}
 
-            {handoff?.action === 'gap_report' && (
+            {handoff?.action === 'gap_report' ? (
               <Note tone="live">
                 A gap report was sent to the hospital ({handoff.recipients ?? 1}{' '}
                 {handoff.recipients === 1 ? 'recipient' : 'recipients'}).
               </Note>
+            ) : (
+              currentDecision === 'REJECTED' &&
+              gapReport && (
+                <Note tone="live">
+                  A gap report was sent to the hospital (status: {gapReport.status}).
+                </Note>
+              )
             )}
-            {handoff?.action === 'skipped' && <Note>Hand-off skipped: {handoff.reason}</Note>}
+            {handoff?.action === 'skipped' && (
+              <Note>
+                Hand-off skipped: {handoff.reason}
+                {handoff.message ? ` (${handoff.message})` : ''}
+              </Note>
+            )}
             {handoff?.action === 'failed' && (
               <ErrorBox
                 message={`The decision is saved, but the hand-off failed (${handoff.error_code}): ${handoff.message || ''}`}
@@ -313,6 +383,13 @@ export function ApproveSubmitStep() {
               </div>
             )}
 
+            {submitBlockedByPermission && (
+              <Note>
+                The claim is approved. Someone with the claims:submit permission must send it to{' '}
+                {payerName}.
+              </Note>
+            )}
+
             {submitError && <ErrorBox message={submitError.message || 'Submission failed.'} />}
           </div>
 
@@ -320,7 +397,7 @@ export function ApproveSubmitStep() {
             <SubmissionTracker
               submission={submission}
               payerName={payerName}
-              onRequeue={(reason) => requeue({ submissionId, reason })}
+              onRequeue={canSubmit ? (reason) => requeue({ submissionId, reason }) : undefined}
               isRequeueing={isRequeueing}
               requeueError={requeueError}
             />

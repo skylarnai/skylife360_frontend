@@ -1,8 +1,8 @@
 import { env } from '@/config/env'
 import { ROUTES } from './routes'
-import { isAdminRole } from './permissions'
+import { canUseClaimDesk, isAdminRole, PERMISSIONS } from './permissions'
 
-// Doctor / Staff flow (S05–S08). NEEDED endpoints fall back to prototype mock data until the backend ships them.
+// Doctor / Staff flow (S05–S08), all on the real backend.
 export const DOCTOR_PANEL_ENABLED = true
 
 export const ADMIN_TABS = [
@@ -22,6 +22,7 @@ export const ADMIN_TABS = [
     key: 'users',
     label: 'Users & access',
     to: ROUTES.USERS,
+    permission: PERMISSIONS.USERS_MANAGE,
     isActive: (pathname) => pathname.startsWith(ROUTES.USERS),
   },
 ]
@@ -58,9 +59,20 @@ export const CLINICAL_TABS = [
   },
 ]
 
-export function getTabsForRole(role) {
-  if (!DOCTOR_PANEL_ENABLED) {
-    return ADMIN_TABS
+const CLAIM_DESK_TAB_KEYS = ['worklist', 'desk']
+
+/**
+ * Tabs come from the role, plus the permissions from /auth/me:
+ * - admins get the admin tabs (Users only with users:manage);
+ * - a doctor / staff user with a reviewer permission also gets Claims and Work on a claim.
+ */
+export function getTabsForRole(role, permissions = []) {
+  const allowed = (tab) => !tab.permission || permissions.includes(tab.permission)
+  if (!DOCTOR_PANEL_ENABLED || isAdminRole(role)) {
+    return ADMIN_TABS.filter(allowed)
   }
-  return isAdminRole(role) ? ADMIN_TABS : CLINICAL_TABS
+  if (canUseClaimDesk(role, permissions)) {
+    return [...CLINICAL_TABS, ...ADMIN_TABS.filter((tab) => CLAIM_DESK_TAB_KEYS.includes(tab.key))]
+  }
+  return CLINICAL_TABS
 }

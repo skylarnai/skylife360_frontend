@@ -7,7 +7,9 @@ import { integrityApi } from '@/features/integrity/api/integrityApi'
 import { IntegrityCheckRow } from '@/features/integrity/components/IntegrityCheckRow'
 import { IntegritySummaryPills } from '@/features/integrity/components/IntegritySummaryPills'
 import { useIntegrityRun } from '@/features/integrity/hooks/useIntegrityRun'
+import { PERMISSIONS } from '@/constants/permissions'
 import { useActivity } from '@/hooks/useActivity'
+import { usePermission } from '@/hooks/usePermission'
 import { useUiStore } from '@/store/uiStore'
 import { useClaimDesk } from '../hooks/useClaimDesk'
 
@@ -30,7 +32,9 @@ export function IntegrityStep() {
   const runId = intakeQuery.data?.integrity_run_id || desk.integrityRunId
   const packetId = intakeQuery.data?.packet_id || desk.packetId
 
-  const integrityRunQuery = useIntegrityRun(runId)
+  // GET /integrity/runs/{id} and POST /integrity/check need integrity:view (403 INSUFFICIENT_PERMISSIONS).
+  const canViewIntegrity = usePermission(PERMISSIONS.INTEGRITY_VIEW)
+  const integrityRunQuery = useIntegrityRun(canViewIntegrity ? runId : null)
   const [runningManual, setRunningManual] = useState(false)
   const [manualError, setManualError] = useState('')
 
@@ -85,6 +89,26 @@ export function IntegrityStep() {
           actionText="Go to step 3."
           to={`/claims/${claimId}/gaps${batchId ? `?batch=${encodeURIComponent(batchId)}` : ''}`}
         />
+      </>
+    )
+  }
+
+  if (!canViewIntegrity) {
+    return (
+      <>
+        <div className="between">
+          <h2 style={{ fontSize: '18px' }}>Integrity check</h2>
+          <span className="small muted">Runs on the claim packet</span>
+        </div>
+        <Note tone="plum">
+          Integrity results are shown only to users with the integrity:view permission. The check
+          still runs on the packet, and the reviewer sees its result before approving.
+        </Note>
+        <div className="row">
+          <Button variant="pri" onClick={goToApprove}>
+            Next: approve & submit →
+          </Button>
+        </div>
       </>
     )
   }
@@ -151,8 +175,8 @@ export function IntegrityStep() {
             <b style={{ fontSize: '15px' }}>Checking claim integrity…</b>
           </div>
           <span className="small muted">
-            Inspecting file forensics, duplicate claim registries, and billing tariffs. Usually takes
-            under a minute.
+            Inspecting file forensics, duplicate claim registries, and billing tariffs. Usually
+            takes under a minute.
           </span>
         </div>
       )}

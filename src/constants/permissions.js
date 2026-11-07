@@ -22,6 +22,9 @@ export const PERMISSIONS = {
   USERS_MANAGE: 'users:manage',
 }
 
+// Fallback only: used when /auth/me returns no `permissions` list. The backend list always wins
+// (an admin can give any user custom permissions). Mirrors the backend defaults as of dev@4e426c0:
+// MEMBER no longer has integrity:view / integrity:clear / claims:approve.
 export const ROLE_PERMISSIONS = {
   [ROLES.ADMIN]: [
     PERMISSIONS.FILES_UPLOAD,
@@ -34,29 +37,47 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.INTEGRITY_CLEAR,
     PERMISSIONS.CLAIMS_APPROVE,
     PERMISSIONS.CLAIMS_SUBMIT,
+    PERMISSIONS.TASKS_RESOLVE,
     PERMISSIONS.TASKS_VIEW,
     PERMISSIONS.RULES_MANAGE,
     PERMISSIONS.USERS_MANAGE,
   ],
-  [ROLES.DOCTOR]: [
-    PERMISSIONS.DOCS_READ,
-    PERMISSIONS.RAG_ASK,
-    PERMISSIONS.TASKS_RESOLVE,
-    PERMISSIONS.TASKS_VIEW,
-  ],
+  // Backend VIEWER (normalizeRole maps VIEWER -> DOCTOR)
+  [ROLES.DOCTOR]: [PERMISSIONS.DOCS_READ, PERMISSIONS.RAG_ASK, PERMISSIONS.TASKS_RESOLVE],
+  // Backend MEMBER
   [ROLES.RECORDS_STAFF]: [
     PERMISSIONS.FILES_UPLOAD,
     PERMISSIONS.DOCS_READ,
     PERMISSIONS.RAG_ASK,
     PERMISSIONS.CLAIMS_INTAKE,
+    PERMISSIONS.GAPS_RUN,
+    PERMISSIONS.PACKETS_BUILD,
     PERMISSIONS.TASKS_RESOLVE,
-    PERMISSIONS.TASKS_VIEW,
   ],
   [ROLES.COMPLIANCE]: [
     PERMISSIONS.DOCS_READ,
     PERMISSIONS.INTEGRITY_VIEW,
     PERMISSIONS.INTEGRITY_CLEAR,
   ],
+}
+
+// Any one of these opens the Claims worklist and the claim desk, whatever the role
+// (e.g. a doctor who is also a reviewer). The backend enforces each action separately.
+export const CLAIM_DESK_PERMISSIONS = [
+  PERMISSIONS.CLAIMS_APPROVE,
+  PERMISSIONS.CLAIMS_SUBMIT,
+  PERMISSIONS.INTEGRITY_VIEW,
+  PERMISSIONS.INTEGRITY_CLEAR,
+]
+
+export function hasAnyPermission(permissions = [], required = []) {
+  if (!required || required.length === 0) return true
+  return required.some((perm) => permissions.includes(perm))
+}
+
+/** Admins always; anyone else only with a reviewer permission. */
+export function canUseClaimDesk(role, permissions = []) {
+  return isAdminRole(role) || hasAnyPermission(permissions, CLAIM_DESK_PERMISSIONS)
 }
 
 export function normalizeRole(role) {

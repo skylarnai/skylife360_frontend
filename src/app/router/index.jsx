@@ -1,6 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { DOCTOR_PANEL_ENABLED } from '@/constants/navigation'
-import { ROLES } from '@/constants/permissions'
+import { CLAIM_DESK_PERMISSIONS, PERMISSIONS } from '@/constants/permissions'
 import { getLandingRoute, ROUTES } from '@/constants/routes'
 import { AppShell } from '@/components/layout/AppShell'
 import { ForgotPasswordPage } from '@/features/auth/pages/ForgotPasswordPage'
@@ -16,7 +16,7 @@ import { AskPatientPage } from '@/features/rag/pages/AskPatientPage'
 import { MyTodosPage } from '@/features/tasks/pages/MyTodosPage'
 import { FoundationShowcasePage } from '@/pages/FoundationShowcasePage'
 import { useSessionStore } from '@/store/sessionStore'
-import { PublicOnly, RequireAuth, RequireRole } from './guards'
+import { PublicOnly, RequireAuth, RequirePermission } from './guards'
 
 // Doctor / Staff screens (S05–S08). Admins can open them too (docs:read); actions are gated by permission.
 const doctorAndStaffRoutes = DOCTOR_PANEL_ENABLED
@@ -76,7 +76,9 @@ export const router = createBrowserRouter([
         element: <FoundationShowcasePage />,
       },
       {
-        element: <RequireRole roles={[ROLES.ADMIN, ROLES.COMPLIANCE]} />,
+        // Admins, plus anyone an admin gave a reviewer permission (claims:approve, claims:submit,
+        // integrity:view, integrity:clear). Each action inside is gated by its own permission.
+        element: <RequirePermission anyOf={CLAIM_DESK_PERMISSIONS} allowAdmin />,
         children: [
           {
             path: ROUTES.CLAIMS,
@@ -86,6 +88,11 @@ export const router = createBrowserRouter([
             path: ROUTES.CLAIM_DESK,
             element: <ClaimDeskLayout />,
           },
+        ],
+      },
+      {
+        element: <RequirePermission anyOf={[PERMISSIONS.USERS_MANAGE]} />,
+        children: [
           {
             path: ROUTES.USERS,
             element: <UsersPage />,

@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { MESSAGES } from '@/constants/messages'
-import { normalizeRole } from '@/constants/permissions'
+import { hasAnyPermission, isAdminRole, normalizeRole } from '@/constants/permissions'
 import { getLandingRoute, ROUTES } from '@/constants/routes'
 import { ErrorBox } from '@/components/ui/ErrorBox'
 import { CardPad } from '@/components/ui/Card'
@@ -16,7 +16,7 @@ function FullPageLoader() {
       <div className="row muted">
         <span
           aria-hidden="true"
-          className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-accent border-r-transparent"
+          className="border-accent inline-block h-5 w-5 animate-spin rounded-full border-2 border-r-transparent"
         />
         <span className="mono small">Loading workspace…</span>
       </div>
@@ -62,8 +62,7 @@ export function RequireAuth({ children }) {
 
   useEffect(() => {
     const handleUnauthorized = (event) => {
-      const from =
-        event?.detail?.from || `${location.pathname}${location.search}${location.hash}`
+      const from = event?.detail?.from || `${location.pathname}${location.search}${location.hash}`
       navigate(ROUTES.LOGIN, {
         replace: true,
         state: { from },
@@ -102,6 +101,28 @@ export function RequireRole({ roles = [], children }) {
   }
 
   return children || <Outlet />
+}
+
+function AccessDenied() {
+  return (
+    <CardPad className="stack">
+      <ErrorBox message={MESSAGES.ACCESS_DENIED} />
+    </CardPad>
+  )
+}
+
+/**
+ * Opens the route when the user has ANY of `anyOf` permissions (from /auth/me), or is an admin
+ * when `allowAdmin` is set. Prefer this over RequireRole: the backend checks permissions, not roles.
+ */
+export function RequirePermission({ anyOf = [], allowAdmin = false, children }) {
+  const role = useSessionStore((state) => state.role)
+  const permissions = useSessionStore((state) => state.permissions)
+
+  if ((allowAdmin && isAdminRole(role)) || hasAnyPermission(permissions, anyOf)) {
+    return children || <Outlet />
+  }
+  return <AccessDenied />
 }
 
 export function PublicOnly({ children }) {

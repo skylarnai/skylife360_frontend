@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { env } from '@/config/env'
 import { DOCTOR_PANEL_ENABLED } from '@/constants/navigation'
 import { ROUTES } from '@/constants/routes'
@@ -32,6 +32,9 @@ export function LoginPage() {
   useDocumentTitle('Sign in')
   const [searchParams] = useSearchParams()
   const oauthErrorCode = searchParams.get('error')
+  // Set by the MFA page when the MFA token can no longer be used (too many tries, already used, locked).
+  const location = useLocation()
+  const mfaNotice = location.state?.mfaNotice || ''
 
   const loginMutation = useLogin()
   const googleAuth = useGoogleAuth()
@@ -81,6 +84,7 @@ export function LoginPage() {
 
   const errorMessage =
     validationError ||
+    (loginMutation.isIdle ? mfaNotice : '') ||
     googleAuth.error ||
     mapOAuthErrorMessage(oauthErrorCode) ||
     (loginMutation.isError ? mapAuthErrorMessage(loginMutation.error) : '')

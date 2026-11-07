@@ -38,6 +38,8 @@ export function PreApprovalChecklist({
   blockers = [],
   flags = [],
   integrityChecks = [],
+  // false for users without integrity:view: the backend sends integrity_checks: [] and integrity_flag: null.
+  canViewIntegrity = true,
 }) {
   const hasBlockers = blockers.length > 0
   const softCount = softGapCount
@@ -104,12 +106,20 @@ export function PreApprovalChecklist({
         )}
 
         {/* Integrity warnings */}
-        {integrityCount > 0 ? (
+        {!canViewIntegrity ? (
+          <ChecklistDot
+            tone="grey"
+            symbol="–"
+            text="Integrity results are shown to integrity reviewers only"
+          />
+        ) : integrityCount > 0 ? (
           <ChecklistDot
             tone={integrityWarnings.some((w) => w.result_flag === 'HARD_FAIL') ? 'red' : 'amb'}
             symbol="!"
             text={`Integrity: ${integrityCount} ${integrityCount === 1 ? 'finding' : 'findings'} (${integrityWarnings
-              .map((w) => getIntegrityCheckLabel(w.check_type) + (w.degraded ? ', limited data' : ''))
+              .map(
+                (w) => getIntegrityCheckLabel(w.check_type) + (w.degraded ? ', limited data' : ''),
+              )
               .join('; ')})`}
           />
         ) : (
@@ -119,4 +129,3 @@ export function PreApprovalChecklist({
     </div>
   )
 }
-

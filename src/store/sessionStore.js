@@ -4,6 +4,9 @@ import { normalizeRole, ROLE_PERMISSIONS } from '@/constants/permissions'
 export const useSessionStore = create((set) => ({
   user: null,
   role: null,
+  // Backend role as sent (SUPER_ADMIN | ADMIN | MEMBER | VIEWER). `role` is the normalized UI role,
+  // which maps both MEMBER and VIEWER to DOCTOR; scope differs (VIEWER = granted patients only).
+  backendRole: null,
   permissions: [],
   hospital: null,
   csrfToken: null,
@@ -21,6 +24,7 @@ export const useSessionStore = create((set) => ({
       set({
         user: null,
         role: null,
+        backendRole: null,
         permissions: [],
         hospital: null,
         csrfToken: null,
@@ -40,6 +44,7 @@ export const useSessionStore = create((set) => ({
     set({
       user: payload.user,
       role: normalizedRole,
+      backendRole: String(payload.role || payload.user.role || '').toUpperCase() || null,
       permissions,
       hospital: payload.hospital || null,
       csrfToken: payload.csrf_token || null,
@@ -69,6 +74,7 @@ export const useSessionStore = create((set) => ({
     set((state) => ({
       user: null,
       role: null,
+      backendRole: null,
       permissions: [],
       hospital: null,
       csrfToken: null,

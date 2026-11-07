@@ -45,6 +45,14 @@ export function SubmissionTracker({
   const isFailed = isPayerRejected || isDeadLettered
   const activeIdx = STAGE_INDEX[currentStatus] ?? 0
 
+  // last_error_message: the payer's or dispatcher's detail, else plain English for the code.
+  const errorText = [
+    submission.last_error_message,
+    submission.last_error_code ? `(${submission.last_error_code})` : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
   const pillTone = isSubmitted ? 'ok' : isFailed ? 'red' : isRetrying ? 'amb' : 'teal'
 
   return (
@@ -101,49 +109,55 @@ export function SubmissionTracker({
         {isRetrying && submission.next_attempt_at
           ? ` · next try at ${formatTime(submission.next_attempt_at)}`
           : ''}
-        {submission.last_error_code && !isSubmitted ? ` · last error: ${submission.last_error_code}` : ''}
+        {errorText && !isSubmitted && !isFailed ? ` · last error: ${errorText}` : ''}
       </div>
 
       {isSubmitted && (
         <div className="small muted">
-          Payer reference: <b>{submission.payer_claim_reference || submission.submission_id}</b>. If the payer
-          returns any queries or a rejection, it will appear in your worklist.
+          Payer reference: <b>{submission.payer_claim_reference || submission.submission_id}</b>. If
+          the payer returns any queries or a rejection, it will appear in your worklist.
         </div>
       )}
 
       {isPayerRejected && (
         <div style={{ color: 'var(--red)', fontSize: '13.5px' }}>
-          {payerName} rejected this claim
-          {submission.last_error_code ? ` (${submission.last_error_code})` : ''}. It cannot be resent as is.
+          {payerName} rejected this claim{errorText ? `: ${errorText}` : ''}. It cannot be resent as
+          is.
         </div>
       )}
 
       {isDeadLettered && (
         <div style={{ display: 'grid', gap: '8px' }}>
           <span style={{ color: 'var(--red)', fontSize: '13.5px' }}>
-            Sending failed after every attempt
-            {submission.last_error_code ? ` (${submission.last_error_code})` : ''}. Give a reason to try again.
+            Sending failed after every attempt{errorText ? `: ${errorText}` : ''}.
+            {onRequeue
+              ? ' Give a reason to try again.'
+              : ' Someone with the claims:submit permission can requeue it.'}
           </span>
-          <textarea
-            className="input"
-            rows={2}
-            maxLength={2000}
-            value={reason}
-            disabled={isRequeueing}
-            placeholder="e.g., Payer endpoint was down; confirmed back up with the TPA."
-            onChange={(e) => setReason(e.target.value)}
-          />
-          <div className="row">
-            <Button
-              size="sm"
-              variant="warn"
-              loading={isRequeueing}
-              disabled={!reason.trim() || isRequeueing}
-              onClick={() => onRequeue?.(reason.trim())}
-            >
-              Requeue
-            </Button>
-          </div>
+          {onRequeue && (
+            <>
+              <textarea
+                className="input"
+                rows={2}
+                maxLength={2000}
+                value={reason}
+                disabled={isRequeueing}
+                placeholder="e.g., Payer endpoint was down; confirmed back up with the TPA."
+                onChange={(e) => setReason(e.target.value)}
+              />
+              <div className="row">
+                <Button
+                  size="sm"
+                  variant="warn"
+                  loading={isRequeueing}
+                  disabled={!reason.trim() || isRequeueing}
+                  onClick={() => onRequeue?.(reason.trim())}
+                >
+                  Requeue
+                </Button>
+              </div>
+            </>
+          )}
           {requeueError && <ErrorBox message={requeueError.message || 'Requeue failed.'} />}
         </div>
       )}

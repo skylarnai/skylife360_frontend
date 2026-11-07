@@ -110,3 +110,22 @@ export function getClaimStageInfo(stage) {
 export function getIntegrityFlagInfo(flag) {
   return INTEGRITY_FLAG_MAP[flag] || { label: String(flag || '').toUpperCase(), tone: 'grey' }
 }
+
+// Claim worklist `pipeline_stage` (GET /claims, from the claim's latest packet). null = no packet yet.
+export const PIPELINE_STAGE_MAP = {
+  IN_PIPELINE: { label: 'CHECKING', tone: 'grey' },
+  IN_REVIEW: { label: 'IN REVIEW', tone: 'amb' },
+  APPROVED: { label: 'APPROVED', tone: 'ok' },
+  REJECTED: { label: 'REJECTED', tone: 'red' },
+  SENT_BACK: { label: 'SENT BACK', tone: 'amb' },
+  READY_TO_RECHECK: { label: 'READY TO RECHECK', tone: 'ok' },
+  SUBMITTING: { label: 'SUBMITTING', tone: 'grey' },
+  SUBMITTED: { label: 'SUBMITTED', tone: 'ok' },
+  PAYER_REJECTED: { label: 'PAYER REJECTED', tone: 'red' },
+  SUBMISSION_FAILED: { label: 'SEND FAILED', tone: 'red' },
+}
+
+export function getPipelineStageInfo(stage) {
+  if (!stage) return null
+  return PIPELINE_STAGE_MAP[stage] || { label: String(stage).replace(/_/g, ' '), tone: 'grey' }
+}

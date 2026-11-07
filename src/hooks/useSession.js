@@ -8,6 +8,7 @@ import { queryClient } from '@/lib/queryClient'
 export function useSession() {
   const user = useSessionStore((state) => state.user)
   const role = useSessionStore((state) => state.role)
+  const backendRole = useSessionStore((state) => state.backendRole)
   const permissions = useSessionStore((state) => state.permissions)
   const hospital = useSessionStore((state) => state.hospital)
   const csrfToken = useSessionStore((state) => state.csrfToken)
@@ -43,6 +44,9 @@ export function useSession() {
     isAuthenticated: Boolean(user),
     isAdmin,
     isDoctorOrStaff: Boolean(user) && !isAdmin,
+    // Doctors (VIEWER) see only the patients granted to them; staff and admins see the whole hospital.
+    isScopedToGrants: backendRole === 'VIEWER',
+    backendRole,
     setSession,
     clearSession,
     setTodoCount,

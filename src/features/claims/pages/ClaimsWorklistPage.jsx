@@ -1,6 +1,6 @@
 import { useDeferredValue, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CLAIM_STAGE_MAP, getClaimStageInfo } from '@/constants/statusMaps'
+import { CLAIM_STAGE_MAP, getClaimStageInfo, getPipelineStageInfo } from '@/constants/statusMaps'
 import { PERMISSIONS } from '@/constants/permissions'
 import { ApiRail } from '@/components/dev/ApiRail'
 import { TwoColumn } from '@/components/layout/TwoColumn'
@@ -9,6 +9,7 @@ import {
   Chip,
   DataTable,
   ErrorBox,
+  Pagination,
   SearchInput,
   Select,
   Tile,
@@ -22,7 +23,12 @@ import { NewClaimForm } from '../components/NewClaimForm'
 import { useClaims } from '../hooks/useClaims'
 
 const WORKLIST_APIS = [
-  ['GET', '/api/v1/claims?stage=&payer=&q=&limit=&offset=', 'READY', 'Claim list + summary tiles'],
+  [
+    'GET',
+    '/api/v1/claims?stage=&payer=&q=&limit=&offset=',
+    'READY',
+    'Claim list + summary tiles · pipeline_stage per row',
+  ],
   ['POST', '/api/v1/claims', 'READY', 'New claim (grants the patient to this hospital)'],
   ['GET', '/api/v1/claims/{claim_id}', 'READY', 'Claim header on the desk'],
 ]
@@ -32,7 +38,7 @@ const STAGE_OPTIONS = [
   ...Object.keys(CLAIM_STAGE_MAP).map((stage) => ({ value: stage, label: stage })),
 ]
 
-const PAGE_SIZE = 50
+const PAGE_SIZE = 25
 
 const NEXT_ACTION_TONE = { pos: 'ok', neutral: 'grey' }
 
@@ -99,6 +105,14 @@ const COLUMNS = [
     },
   },
   {
+    key: 'pipeline_stage',
+    header: 'REVIEW',
+    render: (row) => {
+      const ps = getPipelineStageInfo(row.pipeline_stage)
+      return ps ? <Chip tone={ps.tone}>{ps.label}</Chip> : <span className="muted">—</span>
+    },
+  },
+  {
     key: 'next_action',
     header: 'NEXT',
     render: (row) =>
@@ -133,7 +147,6 @@ export function ClaimsWorklistPage() {
   const claims = data?.items || []
   const total = data?.total ?? 0
   const summary = data?.summary
-  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   const tiles = [
     ['open claims', summary?.open_claims],
@@ -208,7 +221,7 @@ export function ClaimsWorklistPage() {
                 rows={claims}
                 rowKey="claim_id"
                 loading={isLoading}
-                minWidth={900}
+                minWidth={1000}
                 emptyMessage={
                   q || stage !== 'all'
                     ? 'No claims match these filters.'
@@ -216,27 +229,14 @@ export function ClaimsWorklistPage() {
                 }
                 onRowClick={openClaim}
               />
-              {total > PAGE_SIZE && (
-                <div className="row" style={{ gap: '8px' }}>
-                  <Button
-                    size="sm"
-                    disabled={page === 0 || isFetching}
-                    onClick={() => setPage((p) => p - 1)}
-                  >
-                    ← Prev
-                  </Button>
-                  <span className="small muted">
-                    Page {page + 1} of {pageCount} · {total} claims
-                  </span>
-                  <Button
-                    size="sm"
-                    disabled={page + 1 >= pageCount || isFetching}
-                    onClick={() => setPage((p) => p + 1)}
-                  >
-                    Next →
-                  </Button>
-                </div>
-              )}
+              <Pagination
+                page={page}
+                pageSize={PAGE_SIZE}
+                total={total}
+                disabled={isFetching}
+                onChange={setPage}
+                noun="claims"
+              />
             </>
           )}
         </>

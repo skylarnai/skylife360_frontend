@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { env } from '@/config/env'
 import { ROUTES } from '@/constants/routes'
 import { Button } from '@/components/ui/Button'
@@ -39,8 +39,19 @@ function parseMfaParamsFromUrl() {
   return { mfaToken, devOtp }
 }
 
+// The backend answers a wrong code with exactly this message; the token can be retried (up to 5 times).
+// Any other INVALID_MFA means the token is used up (too many tries, already used, expired): sign in again.
+const WRONG_CODE_MESSAGE = 'Invalid or expired MFA code'
+
+function mustRestartSignIn(error) {
+  if (!error) return false
+  if (error.code === 'ACCOUNT_LOCKED' || error.status === 423) return true
+  return error.code === 'INVALID_MFA' && error.message !== WRONG_CODE_MESSAGE
+}
+
 export function MfaPage() {
   useDocumentTitle('Verify MFA')
+  const navigate = useNavigate()
   const storeMfaToken = useSessionStore((state) => state.mfaToken)
   const storeEmail = useSessionStore((state) => state.mfaEmail)
   const storeDevOtp = useSessionStore((state) => state.mfaDevOtp)
@@ -90,6 +101,19 @@ export function MfaPage() {
     }
   }, [activeMfaToken, availableOtp])
 
+  // Token burned or account locked: drop the challenge and go back to the sign-in screen.
+  const verifyError = verifyMfaMutation.error
+  useEffect(() => {
+    if (!mustRestartSignIn(verifyError)) return
+    const mfaNotice =
+      verifyError.code === 'ACCOUNT_LOCKED' || verifyError.status === 423
+        ? mapAuthErrorMessage(verifyError)
+        : 'Too many wrong codes, or this code was already used. Sign in again to get a new code.'
+    // Navigate first so the notice survives; clearing first would render the plain <Navigate> below.
+    navigate(ROUTES.LOGIN, { replace: true, state: { mfaNotice } })
+    clearMfaChallenge()
+  }, [verifyError, clearMfaChallenge, navigate])
+
   if (!activeMfaToken) {
     return <Navigate to={ROUTES.LOGIN} replace />
   }
@@ -101,7 +125,7 @@ export function MfaPage() {
     const parsed = mfaSchema.safeParse({ code })
     if (!parsed.success) {
       setValidationError(
-        parsed.error.issues[0]?.message || 'Enter the 6-digit code from your authenticator app.'
+        parsed.error.issues[0]?.message || 'Enter the 6-digit code from your authenticator app.',
       )
       return
     }
@@ -123,7 +147,7 @@ export function MfaPage() {
           <h2>Two-step verification</h2>
           <p>
             Enter the 6-digit code from your authenticator app
-            {(devEmail || storeEmail) ? ` for ${devEmail || storeEmail}` : ''}.
+            {devEmail || storeEmail ? ` for ${devEmail || storeEmail}` : ''}.
           </p>
         </div>
 
@@ -141,13 +165,13 @@ export function MfaPage() {
                   <span>Expires in {devCodeInfo.expires_in_seconds}s</span>
                 ) : null}
               </div>
-              <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="small muted">
                   {availableOtp
                     ? 'Code auto-filled from backend dev_otp'
                     : devCodeInfo
-                    ? 'Code retrieved from GET /api/v1/auth/mfa/dev-code'
-                    : 'Dev mode: live code will auto-fill'}
+                      ? 'Code retrieved from GET /api/v1/auth/mfa/dev-code'
+                      : 'Dev mode: live code will auto-fill'}
                 </span>
                 {code && code.length === 6 && (
                   <Button
@@ -167,21 +191,12 @@ export function MfaPage() {
 
         {errorMessage ? <ErrorBox message={errorMessage} /> : null}
 
-        <Button
-          type="submit"
-          variant="pri"
-          className="lgo"
-          loading={verifyMfaMutation.isPending}
-        >
+        <Button type="submit" variant="pri" className="lgo" loading={verifyMfaMutation.isPending}>
           {verifyMfaMutation.isPending ? 'Verifying…' : 'Verify'}
         </Button>
 
         <div>
-          <Link
-            to={ROUTES.LOGIN}
-            className="link small"
-            onClick={() => clearMfaChallenge()}
-          >
+          <Link to={ROUTES.LOGIN} className="link small" onClick={() => clearMfaChallenge()}>
             ← Back to sign in
           </Link>
         </div>
