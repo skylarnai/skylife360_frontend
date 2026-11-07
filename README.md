@@ -11,7 +11,7 @@ React web app for the Sky Life 360 claim adjudication backend (`sky_life_360_dev
 
 - Screen specs, build order and build prompts: [docs/README.md](docs/README.md)
 - Every backend endpoint the screens use, READY vs NEEDED: [docs/api_catalog.md](docs/api_catalog.md)
-- Creating users and roles for local login: [docs/01 - Auth/auth_user_setup.md](docs/01%20-%20Auth/auth_user_setup.md)
+- **Quick commands to create admins, doctors and staff: [USER_SETUP.md](USER_SETUP.md)** (full guide: [docs/01 - Auth/auth_user_setup.md](docs/01%20-%20Auth/auth_user_setup.md))
 
 ## Getting started (once S00 is built)
 

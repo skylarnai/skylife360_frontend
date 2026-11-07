@@ -7,8 +7,10 @@
 | Route | `/documents` (Doctor / Staff landing page) · URL state `?q=&patient=&type=&status=&file=` |
 | Prototype reference | `viewFiles()`, `fileResults()`, `fileDetail()` |
 | Depends on | S00, S01 |
-| Status | **Built** · partly wired: in-document search and page text are live; the list is mock until N1 |
-| API readiness | Partial: N1 `GET /files`, N2 `GET /patients`, N7 `POST /tasks` are **NEEDED** ([doctor_flow_apis.md](doctor_flow_apis.md)) |
+| Status | **Wired**: N1 list (25 a page), N2 patients, page text, N7 Request re-scan. Search inside the text only with `VITE_ENABLE_ASK=true`. No mock. |
+| API readiness | READY ([doctor_flow_apis.md](doctor_flow_apis.md)); search by name waits on [files_filters_backend_request.md](files_filters_backend_request.md) |
+
+> **Note:** Sections below were written against the mock (`filesApi.mock.js`, `DemoDataNote`), which has been removed. Current APIs: [doctor_flow_apis.md](doctor_flow_apis.md).
 
 ## 1. Purpose
 

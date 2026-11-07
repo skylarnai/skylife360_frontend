@@ -78,7 +78,9 @@ Output shows ID, active state, role, whether MFA is on, email and name. Login fa
 
 Admins always get a second step after the password.
 
-**In development you don't need an authenticator app.** When the backend runs with `APP_ENV=development` (or `test`), the login response includes the current 6-digit code as `dev_otp`, and the frontend fills it in on the MFA page automatically. The backend also prints the code in its terminal.
+**In development you don't need an authenticator app.** When the backend runs with `APP_ENV=development` (or `test`) **and `AUTH_DEV_SHORTCUTS=true`** in its `.env` (required since backend `f0998bb`), the login response includes the current 6-digit code as `dev_otp`, and the frontend fills it in on the MFA page automatically. The backend also prints the code in its terminal. Without `AUTH_DEV_SHORTCUTS=true` there is no `dev_otp`, and `GET /auth/mfa/dev-code` returns 404.
+
+An MFA token allows 5 wrong codes and one successful use. After that the frontend sends the user back to the sign-in screen to get a new code.
 
 **To use a real authenticator app** (Google Authenticator, Microsoft Authenticator, etc.), add an account manually using the MFA secret printed by `create-user` (a base32 key, time-based). The secret is only printed once, at creation.
 
@@ -155,7 +157,7 @@ Restart `npm run dev` after changing the frontend `.env`, because Vite only read
 | Symptom | Cause |
 |---|---|
 | "Email or password is incorrect" | The user doesn't exist in the database you're pointing at, or the password is wrong. Run `list-users`. |
-| MFA code not filled in | Backend isn't running with `APP_ENV=development`, or you opened `/login/mfa` directly without signing in first. |
+| MFA code not filled in | Backend isn't running with `APP_ENV=development` and `AUTH_DEV_SHORTCUTS=true`, or you opened `/login/mfa` directly without signing in first. |
 | "That code is incorrect or has expired" | The code rotates every 30 seconds. Go back to sign in to get a fresh one. |
 | `/auth/me` returns "Missing API key" | Expected when you're not signed in (no session cookie). |
 | Network error on login | Backend isn't running on `http://127.0.0.1:8000`, or `VITE_PROXY_TARGET` in `.env` points elsewhere. |

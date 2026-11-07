@@ -7,8 +7,10 @@
 | Route | `/patients/:patientId` · the tab opens `/patients/first`, which redirects to the first patient in the caller's list |
 | Prototype reference | `viewPatients()`, `TL` |
 | Depends on | S00, S05 (documents list), S06 (`PatientPicker`) |
-| Status | **Built** against mocks |
-| API readiness | **NEEDED**: N2, N3, N4, N1 ([doctor_flow_apis.md](doctor_flow_apis.md)) |
+| Status | **Wired**: N2 picker, N3 header (403/404 as notes), N1 documents. Timeline (N4) removed until the models. No mock. |
+| API readiness | READY except N4 ([doctor_flow_apis.md](doctor_flow_apis.md)) |
+
+> **Note:** Sections below were written against the mock (`patientsApi.mock.js`, timeline), which has been removed. Current APIs: [doctor_flow_apis.md](doctor_flow_apis.md).
 
 ## 1. Purpose
 
