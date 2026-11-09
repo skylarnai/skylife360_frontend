@@ -9,7 +9,7 @@ export const OtpInput = forwardRef(function OtpInput(
     onChange,
     ...props
   },
-  ref
+  ref,
 ) {
   const handleChange = (e) => {
     const digitsOnly = e.target.value.replace(/\D+/g, '').slice(0, 6)

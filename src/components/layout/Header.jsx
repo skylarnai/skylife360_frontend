@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { env } from '@/config/env'
 import { getLandingRoute, ROUTES } from '@/constants/routes'
@@ -8,8 +9,20 @@ import { useUiStore } from '@/store/uiStore'
 export function Header() {
   const navigate = useNavigate()
   const { user, role, hospital, isAdmin, logout } = useSession()
-  const apiPanel = useUiStore((state) => state.apiPanel)
   const toggleApiPanel = useUiStore((state) => state.toggleApiPanel)
+
+  // The developer API panels have no button (hidden for demos): Ctrl+Shift+A shows or hides them.
+  useEffect(() => {
+    if (!env.showApiPanel) return undefined
+    const onKey = (e) => {
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'a') {
+        e.preventDefault()
+        toggleApiPanel()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [toggleApiPanel])
 
   // /auth/me does not return hospital details yet; fall back to the tenant id.
   const hospitalName = hospital?.name || user?.tenant_id || env.appName
@@ -24,12 +37,10 @@ export function Header() {
   return (
     <header className="hdr">
       <div className="wrap">
-        <Logo to={getLandingRoute(role)} />
+        <Logo to={getLandingRoute(role)} size={44} />
         <div className="hosp">
           {hospitalName}
-          <small>
-            {hospitalCity ? `${hospitalCity} · ${deskLabel}` : deskLabel}
-          </small>
+          <small>{hospitalCity ? `${hospitalCity} · ${deskLabel}` : deskLabel}</small>
         </div>
         {user && (
           <div className="who">
@@ -37,17 +48,6 @@ export function Header() {
               {user.name} · {user.title}
             </span>
             <span className="role-tag">{isAdmin ? 'ADMIN' : 'DOCTOR / STAFF'}</span>
-            {env.showApiPanel && (
-              <button
-                type="button"
-                className="hbtn"
-                aria-pressed={apiPanel}
-                onClick={toggleApiPanel}
-                title="Show or hide the API panels used for development"
-              >
-                API panel
-              </button>
-            )}
             <button type="button" className="hbtn" onClick={handleSignOut}>
               Sign out
             </button>

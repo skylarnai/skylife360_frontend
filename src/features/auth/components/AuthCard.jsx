@@ -1,4 +1,3 @@
-import { env } from '@/config/env'
 import { AuthSidePanel } from './AuthSidePanel'
 
 export function AuthCard({ children }) {
@@ -10,15 +9,7 @@ export function AuthCard({ children }) {
           {children}
         </div>
         <div className="lfoot">
-          <span>
-            {env.showApiPanel ? (
-              <>
-                API · NEEDED: <code>POST /api/v1/auth/login</code> → session cookie + role. Backend
-                calls today use an <code>X-API-Key</code>; keep it server-side, never in the
-                browser.
-              </>
-            ) : null}
-          </span>
+          <span>Secure sign-in · Your hospital's data stays inside your hospital's workspace</span>
           <span>© Sky Claims by Skylarn AI</span>
         </div>
       </div>

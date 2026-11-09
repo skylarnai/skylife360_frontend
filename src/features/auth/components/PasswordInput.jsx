@@ -9,7 +9,7 @@ export const PasswordInput = forwardRef(function PasswordInput(
     disabled = false,
     ...props
   },
-  ref
+  ref,
 ) {
   const [visible, setVisible] = useState(false)
 

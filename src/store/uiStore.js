@@ -3,16 +3,15 @@ import { env } from '@/config/env'
 import { formatTimeNow } from '@/utils/formatters'
 import { useSessionStore } from './sessionStore'
 
-const DEV_STORAGE_KEY = 'skyclaims.dev'
+// Hidden by default (demo). Developers turn it on with Ctrl+Shift+A; the choice is remembered.
+const DEV_STORAGE_KEY = 'skyclaims.apiPanel'
 
 function readInitialApiPanel() {
   if (!env.showApiPanel) return false
   try {
-    const raw = window.localStorage.getItem(DEV_STORAGE_KEY)
-    if (raw === '0' || raw === 'false') return false
-    return true
+    return window.localStorage.getItem(DEV_STORAGE_KEY) === '1'
   } catch {
-    return true
+    return false
   }
 }
 
@@ -48,7 +47,10 @@ export const useUiStore = create((set) => ({
     const sessionUser = useSessionStore.getState().user
     const who = whoOverride || (sessionUser ? sessionUser.name : 'Sky Claims')
     const entry = {
-      id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
+      id:
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : String(Date.now() + Math.random()),
       time: formatTimeNow(),
       who,
       what,
