@@ -8,6 +8,7 @@
 | Backend | `D:\projects\sky_life_360_dev` · FastAPI · all paths under `/api/v1` |
 | Status | See the screen map below. Admin screens are built and wired. The Doctor / Staff flow (S05, S07, S08) and Users & access (S04) are wired to the backend (`dev@49913f8`, including the to-dos that close the send-back loop). Ask (S06) and the timeline wait for the AI models. |
 | Start here | **[end_to_end_claim_flow.md](end_to_end_claim_flow.md)**: create users → open a claim → approve and submit → the doctor's to-do list |
+| Town hall | [Demo script](end_to_end_claim_flow.md#0-town-hall-demo-script) · [Payer gaps](02%20-%20Admin/Claim%20Desk/payer_gaps.md) (no payer is connected yet) · [Payer decision brief](02%20-%20Admin/Claim%20Desk/payer_decision_brief.md) · [Bug B1](02%20-%20Admin/Claim%20Desk/payer_handoff_bug_B1.md) |
 
 > **Team document standard (applies to every screen doc)**
 >

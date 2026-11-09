@@ -5,6 +5,7 @@
 | Screen | S03.6 Approve & submit (submission tracker) |
 | Backend | `app/features/f006_human_validation/submission/` (`payer_client.py`, `document.py`, `classify.py`, `cli.py`) |
 | Checked against | backend `dev` @ `0c09a8f`, local database `HOSP-001` (6 Nov 2026) |
+| Gaps and next steps | [payer_gaps.md](payer_gaps.md) |
 | Short answer | **There is no real payer connected.** For testing we point the payer endpoint at `httpbin.org`, a public echo service. "SUBMITTED" only means *httpbin answered 200*, not that an insurer received the claim. |
 
 ---
