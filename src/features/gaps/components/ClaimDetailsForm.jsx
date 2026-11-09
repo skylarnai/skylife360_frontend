@@ -35,6 +35,8 @@ export function ClaimDetailsForm({
     Boolean(formData.subscriber?.member_id) &&
     Boolean(formData.subscriber?.first_name) &&
     Boolean(formData.subscriber?.last_name) &&
+    Boolean(formData.provider?.provider_id) &&
+    Boolean(formData.provider?.name) &&
     docSummary?.isReady
 
   return (
@@ -61,8 +63,13 @@ export function ClaimDetailsForm({
 
       {docSummary && (
         <div style={{ fontSize: '13.5px', color: docSummary.isReady ? 'var(--ok)' : 'var(--amb)' }}>
-          📄 <b>{docSummary.eligibleCount} of {docSummary.totalCount}</b> documents ready (indexed & verified).
-          {!docSummary.isReady && ' Wait for documents to finish reading or upload documents in Step 1.'}
+          📄{' '}
+          <b>
+            {docSummary.eligibleCount} of {docSummary.totalCount}
+          </b>{' '}
+          documents ready (indexed & verified).
+          {!docSummary.isReady &&
+            ' Wait for documents to finish reading or upload documents in Step 1.'}
           {docSummary.hasTooMany && ' Up to 20 documents allowed per check.'}
         </div>
       )}
@@ -147,15 +154,17 @@ export function ClaimDetailsForm({
             value={formData.subscriber?.birth_date || ''}
             onChange={(e) => handleNestedChange('subscriber', 'birth_date', e.target.value)}
           />
+          <span className="small muted">Checked against the age in the documents</span>
         </div>
 
         <div className="field">
           <label className="small muted">Gender</label>
           <select
             className="input"
-            value={formData.subscriber?.gender || 'U'}
+            value={formData.subscriber?.gender || ''}
             onChange={(e) => handleNestedChange('subscriber', 'gender', e.target.value)}
           >
+            <option value="">Not given</option>
             <option value="F">Female (F)</option>
             <option value="M">Male (M)</option>
             <option value="U">Unknown / Other (U)</option>
@@ -174,7 +183,7 @@ export function ClaimDetailsForm({
         </div>
 
         <div className="field">
-          <label className="small muted">Provider / Hospital Name</label>
+          <label className="small muted">Provider / Hospital Name *</label>
           <input
             type="text"
             className="input"
@@ -203,7 +212,10 @@ export function ClaimDetailsForm({
             <b>Patient Consent Confirmed *</b> (Patient consented to automated claim processing)
           </span>
         </label>
-        <label className="row" style={{ gap: '8px', cursor: 'pointer', fontSize: '13px', color: 'var(--muted)' }}>
+        <label
+          className="row"
+          style={{ gap: '8px', cursor: 'pointer', fontSize: '13px', color: 'var(--muted)' }}
+        >
           <input
             type="checkbox"
             checked={Boolean(formData.consent?.training)}
@@ -225,4 +237,3 @@ export function ClaimDetailsForm({
     </form>
   )
 }
-

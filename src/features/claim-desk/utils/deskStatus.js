@@ -11,14 +11,7 @@ export function deskStatus({
   submitted = false,
   tpaName = 'the payer',
 } = {}) {
-  const reached = [
-    true,
-    uploaded,
-    uploaded,
-    uploaded,
-    gapsRun,
-    integrityRun,
-  ]
+  const reached = [true, uploaded, uploaded, uploaded, gapsRun, integrityRun]
 
   let text = 'Waiting for documents'
   let tone = 'teal'

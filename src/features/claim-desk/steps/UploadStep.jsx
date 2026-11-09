@@ -72,10 +72,10 @@ export function UploadStep() {
           setAddingMore(false)
           updateDesk({ uploaded: true, batchId: data.batch_id })
           log(
-            `uploaded ${counts.successful ?? 0} file(s): ${counts.duplicate ?? 0} duplicate, ${counts.rejected ?? 0} not allowed`
+            `uploaded ${counts.successful ?? 0} file(s): ${counts.duplicate ?? 0} duplicate, ${counts.rejected ?? 0} not allowed`,
           )
         },
-      }
+      },
     )
   }
 
@@ -105,8 +105,8 @@ export function UploadStep() {
 
           {tooMany && (
             <Note>
-              Up to {MAX_FILES_PER_BATCH} files per upload. Remove {picked.length - MAX_FILES_PER_BATCH}{' '}
-              or put them in a ZIP.
+              Up to {MAX_FILES_PER_BATCH} files per upload. Remove{' '}
+              {picked.length - MAX_FILES_PER_BATCH} or put them in a ZIP.
             </Note>
           )}
           {tooBig && <Note>This upload is over 500 MB. Split it into smaller batches.</Note>}
@@ -178,7 +178,9 @@ export function UploadStep() {
           </div>
         </>
       ) : (
-        <Note>Nothing has been uploaded for this claim yet, and you don't have permission to upload.</Note>
+        <Note>
+          Nothing has been uploaded for this claim yet, and you don't have permission to upload.
+        </Note>
       )}
     </>
   )

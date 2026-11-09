@@ -4,12 +4,7 @@ import { ApiRail } from '@/components/dev/ApiRail'
 import { CardPad, ErrorBox, Lbl, Pill } from '@/components/ui'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { formatMoney } from '@/utils/formatters'
-import {
-  DESK_STEP_APIS,
-  DESK_STEPS,
-  getStepSnippet,
-  SUGGESTED_QUESTIONS,
-} from '../constants'
+import { DESK_STEP_APIS, DESK_STEPS, getStepSnippet, SUGGESTED_QUESTIONS } from '../constants'
 import { useClaimDesk } from '../hooks/useClaimDesk'
 import { ApproveSubmitStep } from '../steps/ApproveSubmitStep'
 import { AskStep } from '../steps/AskStep'
@@ -42,8 +37,7 @@ export function ClaimDeskLayout() {
   }
 
   const StepComponent = STEP_COMPONENTS[activeStepObj.key] || UploadStep
-  const currentQuestionText =
-    SUGGESTED_QUESTIONS[desk.q]?.text || SUGGESTED_QUESTIONS[0].text
+  const currentQuestionText = SUGGESTED_QUESTIONS[desk.q]?.text || SUGGESTED_QUESTIONS[0].text
 
   if (claimError) {
     const message =
@@ -114,8 +108,7 @@ export function ClaimDeskLayout() {
       <nav className="stages" aria-label="Claim steps" style={{ margin: '12px 0' }}>
         {DESK_STEPS.map((stg, position) => {
           const isCurrent = stg.key === activeStepObj.key
-          const isDone =
-            statusInfo.reached[stg.index] && stg.index < activeStepObj.index
+          const isDone = statusInfo.reached[stg.index] && stg.index < activeStepObj.index
           return (
             <Link
               key={stg.key}

@@ -62,26 +62,17 @@ export function CheckGapsStep() {
     }
   }, [gapRunQuery.data, updateDesk])
 
-  // Form state
+  // Form state. No example values: whatever is sent must have been typed or come from the claim
+  // (a leftover example birth date once made every claim look like "a different patient").
   const [formData, setFormData] = useState({
     encounter_id: claimId,
     claim_id: claimId,
-    user_id: claim?.user_id || 'SYN-P-1042',
-    payer_id: claim?.payer_id || 'SYN-07',
-    payer_name: claim?.payer_name || 'Insurer SYN-07',
-    service_date: claim?.service_date || '2026-10-09',
-    subscriber: {
-      member_id: claim?.policy_number || 'POL-SYN-77120',
-      first_name: claim?.patient?.first_name || 'Sunita',
-      last_name: claim?.patient?.last_name || 'Menon',
-      birth_date: claim?.patient?.birth_date || '1980-04-02',
-      gender: claim?.patient?.sex || 'F',
-    },
-    provider: {
-      provider_id: claim?.provider_id || 'HOSP-0042',
-      name: claim?.provider_name || 'Metro Multi-Speciality Hospital',
-      id_qualifier: 'PI',
-    },
+    user_id: '',
+    payer_id: '',
+    payer_name: '',
+    service_date: '',
+    subscriber: { member_id: '', first_name: '', last_name: '', birth_date: '', gender: '' },
+    provider: { provider_id: '', name: '', id_qualifier: 'PI' },
     consent: {
       processing: true,
       training: false,
@@ -89,24 +80,35 @@ export function CheckGapsStep() {
     },
   })
 
-  // Prefill from the claim once it loads (adjusting state during render, not in an effect).
-  const [prefilledFrom, setPrefilledFrom] = useState(null)
-  if (claim && prefilledFrom !== claim) {
-    setPrefilledFrom(claim)
-    // patient.name is one string ("Sunita Menon"): first word = first name, the rest = last name.
-    const [firstName, ...rest] = String(claim.patient?.name || '').trim().split(/\s+/)
+  // Prefill from the claim once per claim (adjusting state during render, not in an effect).
+  // Only empty fields are filled, so a background refetch never overwrites what the user typed.
+  const [prefilledFor, setPrefilledFor] = useState(null)
+  if (claim && prefilledFor !== claimId) {
+    setPrefilledFor(claimId)
+    // patient.name is one string ("Kavita Deshpande"): first word = first name, the rest = last name.
+    const [firstName, ...rest] = String(claim.patient?.name || '')
+      .trim()
+      .split(/\s+/)
     const lastName = rest.join(' ')
+    const keep = (current, fromClaim) => current || fromClaim || ''
     setFormData((prev) => ({
       ...prev,
-      user_id: claim.user_id || prev.user_id,
-      payer_id: claim.payer_id || prev.payer_id,
-      payer_name: claim.payer_name || prev.payer_name,
+      user_id: keep(prev.user_id, claim.user_id),
+      payer_id: keep(prev.payer_id, claim.payer_id),
+      payer_name: keep(prev.payer_name, claim.payer_name),
+      service_date: keep(prev.service_date, claim.service_date),
       subscriber: {
         ...prev.subscriber,
-        member_id: claim.policy_number || prev.subscriber.member_id,
-        first_name: firstName || prev.subscriber.first_name,
-        last_name: lastName || prev.subscriber.last_name,
-        gender: claim.patient?.sex || prev.subscriber.gender,
+        member_id: keep(prev.subscriber.member_id, claim.policy_number),
+        first_name: keep(prev.subscriber.first_name, firstName),
+        last_name: keep(prev.subscriber.last_name, lastName),
+        birth_date: keep(prev.subscriber.birth_date, claim.patient?.birth_date),
+        gender: keep(prev.subscriber.gender, claim.patient?.sex),
+      },
+      provider: {
+        ...prev.provider,
+        provider_id: keep(prev.provider.provider_id, claim.provider_id),
+        name: keep(prev.provider.name, claim.provider_name),
       },
     }))
   }
@@ -114,11 +116,19 @@ export function CheckGapsStep() {
   const handleRunGaps = () => {
     if (!docSummary.isReady) return
 
+    // Optional fields left empty are omitted (the backend reads "" as an invalid date / gender).
+    const { birth_date, gender, ...subscriber } = formData.subscriber
     const payload = {
       ...formData,
       encounter_id: claimId,
       claim_id: claimId,
       user_id: claim?.user_id || formData.user_id,
+      service_date: formData.service_date || undefined,
+      subscriber: {
+        ...subscriber,
+        ...(birth_date ? { birth_date } : {}),
+        ...(gender ? { gender } : {}),
+      },
       file_ids: docSummary.fileIds,
     }
 
@@ -135,6 +145,7 @@ export function CheckGapsStep() {
           packetId: data.packet_id,
           integrityRunId: data.integrity_run_id,
         })
+        setEditing(false)
         log(`ran gap check: intake ${data.intake_id} created`)
       },
     })
@@ -147,7 +158,10 @@ export function CheckGapsStep() {
     navigate(`/claims/${claimId}/integrity${qs}`)
   }
 
-  const isGapsFinished = Boolean(desk.gapsRun || intakeId)
+  // A previous run (in the URL or the desk state) shows its results until the user chooses to edit.
+  const [editing, setEditing] = useState(false)
+  const hasRun = Boolean(desk.gapsRun || intakeId)
+  const showForm = !hasRun || editing
 
   return (
     <>
@@ -174,14 +188,36 @@ export function CheckGapsStep() {
             />
           )}
 
-          {!isGapsFinished ? (
-            <ClaimDetailsForm
-              formData={formData}
-              onChange={setFormData}
-              onSubmit={handleRunGaps}
-              loading={runIntakeMutation.isPending}
-              docSummary={docSummary}
-            />
+          {showForm ? (
+            <>
+              {editing && (
+                <div className="small muted">
+                  Re-running builds a new packet from the documents on the claim now (including
+                  files the hospital uploaded after a send-back). The previous run stays in the
+                  audit trail.
+                </div>
+              )}
+              <ClaimDetailsForm
+                formData={formData}
+                onChange={setFormData}
+                onSubmit={handleRunGaps}
+                loading={runIntakeMutation.isPending}
+                docSummary={docSummary}
+              />
+              {editing && (
+                <div className="row">
+                  <Button
+                    onClick={() => {
+                      setEditing(false)
+                      runIntakeMutation.startNewRun()
+                    }}
+                    disabled={runIntakeMutation.isPending}
+                  >
+                    Cancel, keep the last results
+                  </Button>
+                </div>
+              )}
+            </>
           ) : (
             <>
               {gapRunQuery.isLoading && (
@@ -198,11 +234,7 @@ export function CheckGapsStep() {
               )}
 
               {packetQuery.data && (
-                <PacketCard
-                  packet={packetQuery.data}
-                  gapRunId={gapRunId}
-                  apiPanel={apiPanel}
-                />
+                <PacketCard packet={packetQuery.data} gapRunId={gapRunId} apiPanel={apiPanel} />
               )}
 
               <div className="row" style={{ gap: '8px', marginTop: '12px' }}>
@@ -211,8 +243,8 @@ export function CheckGapsStep() {
                 </Button>
                 <Button
                   onClick={() => {
-                    updateDesk({ gapsRun: false })
                     runIntakeMutation.startNewRun()
+                    setEditing(true)
                   }}
                 >
                   ↺ Edit claim details and re-run

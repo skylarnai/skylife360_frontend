@@ -23,9 +23,19 @@ export const DESK_STEP_APIS = {
       'READY',
       'multipart files[] + user_id + claim_id · Idempotency-Key header · 201 with batch_id',
     ],
-    ['GET', '/api/v1/claims/{claim_id}/documents', 'READY', 'Every file on the claim, across uploads'],
+    [
+      'GET',
+      '/api/v1/claims/{claim_id}/documents',
+      'READY',
+      'Every file on the claim, across uploads',
+    ],
     ['GET', '/api/v1/files/{file_id}/download', 'READY', 'Presigned link to open a file'],
-    ['DELETE', '/api/v1/claims/{claim_id}/documents/{file_id}', 'READY', 'Remove a file from the claim'],
+    [
+      'DELETE',
+      '/api/v1/claims/{claim_id}/documents/{file_id}',
+      'READY',
+      'Remove a file from the claim',
+    ],
   ],
   read: [
     ['GET', '/api/v1/claims/{claim_id}/documents', 'READY', 'Reading status per file (polled)'],
@@ -40,12 +50,7 @@ export const DESK_STEP_APIS = {
       'Answer with sources · stream=true returns SSE, false returns JSON',
     ],
     ['POST', '/api/v1/rag/search', 'READY', 'Ranked passages only'],
-    [
-      'POST',
-      '/api/v1/evaluation/evaluate',
-      'READY',
-      'Answer check: grounded, relevance, safety',
-    ],
+    ['POST', '/api/v1/evaluation/evaluate', 'READY', 'Answer check: grounded, relevance, safety'],
   ],
   gaps: [
     [
@@ -96,7 +101,12 @@ export const DESK_STEP_APIS = {
       '{ packet_id } · 202 · QUEUED → DISPATCHING → SUBMITTED',
     ],
     ['GET', '/api/v1/claims/submissions/{submission_id}', 'READY', 'Status and payer attempts'],
-    ['GET', '/api/v1/claims/gap-reports/{gap_report_id}', 'READY', 'Report sent back to the hospital'],
+    [
+      'GET',
+      '/api/v1/claims/gap-reports/{gap_report_id}',
+      'READY',
+      'Report sent back to the hospital',
+    ],
   ],
 }
 
@@ -211,12 +221,7 @@ export const PROTOTYPE_INTEGRITY = [
     'Policy and ID checks',
     'Policy POL-SYN-77120 is valid and active for this patient.',
   ],
-  [
-    'ANOMALY',
-    'PASS',
-    'Unusual billing',
-    'Bill total is within the normal range for this package.',
-  ],
+  ['ANOMALY', 'PASS', 'Unusual billing', 'Bill total is within the normal range for this package.'],
 ]
 
 export function getStepSnippet(stepKey, questionText = SUGGESTED_QUESTIONS[0].text) {

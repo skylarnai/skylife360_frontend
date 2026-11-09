@@ -51,7 +51,7 @@ export function ReadDocumentsStep() {
           if (retried) updateDesk({ retried: true })
         },
         onError: (err) => log(`couldn't retry ${row.name}: ${err.message || 'error'}`),
-      }
+      },
     )
   }
 

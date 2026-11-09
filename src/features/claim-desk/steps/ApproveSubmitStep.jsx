@@ -34,7 +34,7 @@ export function ApproveSubmitStep() {
   const queryClient = useQueryClient()
   const { user } = useSession()
   const { log } = useActivity()
-  const { claim, desk, updateDesk } = useClaimDesk(claimId)
+  const { claim, desk, updateDesk, latestPacketId } = useClaimDesk(claimId)
 
   // The backend enforces these (403 INSUFFICIENT_PERMISSIONS); the UI only hides what would fail.
   const canApprove = usePermission(PERMISSIONS.CLAIMS_APPROVE)
@@ -51,7 +51,8 @@ export function ApproveSubmitStep() {
   const batchQuery = useBatch(batchId)
 
   const integrityRunId = intakeQuery.data?.integrity_run_id || desk.integrityRunId
-  const packetId = intakeQuery.data?.packet_id || desk.packetId
+  // This browser's run first; otherwise the claim's latest packet (e.g. a second reviewer's window).
+  const packetId = intakeQuery.data?.packet_id || desk.packetId || latestPacketId
   // Integrity runs need integrity:view; without it the task alone drives this step.
   const integrityRunQuery = useIntegrityRun(canViewIntegrity ? integrityRunId : null)
   const integrityStatus = integrityRunQuery.data?.status
@@ -104,7 +105,9 @@ export function ApproveSubmitStep() {
   // No review task yet: POST /reviews { packet_id } returns the existing one (200) or opens it (201).
   const openAttempted = useRef(false)
   useEffect(() => {
-    if (!packetId || reviewTaskId || !intakeQuery.isSuccess || openAttempted.current) return
+    // With an intake, wait for it (its pipeline view may already name the task); without one, open by packet.
+    if (!packetId || reviewTaskId || (intakeId && !intakeQuery.isSuccess) || openAttempted.current)
+      return
     openAttempted.current = true
     openTaskAsync(packetId)
       .then((data) => {
@@ -116,7 +119,7 @@ export function ApproveSubmitStep() {
       .catch(() => {
         // Shown via openTaskError
       })
-  }, [packetId, reviewTaskId, intakeQuery.isSuccess, openTaskAsync, updateDesk])
+  }, [packetId, reviewTaskId, intakeId, intakeQuery.isSuccess, openTaskAsync, updateDesk])
 
   // A finished integrity run changes the task (version, blockers, stage): reload it.
   useEffect(() => {

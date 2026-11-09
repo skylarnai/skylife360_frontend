@@ -90,9 +90,7 @@ export function AskStep() {
             />
           )}
 
-          {isLoading && (
-            <AnswerBox loading={true} />
-          )}
+          {isLoading && <AnswerBox loading={true} />}
 
           {ragResponse && !isLoading && (
             <>
@@ -103,16 +101,10 @@ export function AskStep() {
               />
 
               {ragResponse.sources && ragResponse.sources.length > 0 && (
-                <SourcesList
-                  sources={ragResponse.sources}
-                  citations={ragResponse.citations}
-                />
+                <SourcesList sources={ragResponse.sources} citations={ragResponse.citations} />
               )}
 
-              <AnswerCheck
-                evaluation={evaluation}
-                loading={isEvaluating}
-              />
+              <AnswerCheck evaluation={evaluation} loading={isEvaluating} />
             </>
           )}
 
@@ -130,13 +122,15 @@ export function AskStep() {
               {currentDemoQa.cites.length > 0 && (
                 <div style={{ display: 'grid', gap: '6px' }}>
                   <SourcesList
-                    sources={currentDemoQa.cites.map(([num, fileName, page, matchPct, isScanned]) => ({
-                      chunk_id: `${num}-${fileName}`,
-                      original_filename: fileName,
-                      page_number: page,
-                      relevance_score: matchPct / 100,
-                      has_ocr: isScanned,
-                    }))}
+                    sources={currentDemoQa.cites.map(
+                      ([num, fileName, page, matchPct, isScanned]) => ({
+                        chunk_id: `${num}-${fileName}`,
+                        original_filename: fileName,
+                        page_number: page,
+                        relevance_score: matchPct / 100,
+                        has_ocr: isScanned,
+                      }),
+                    )}
                   />
                 </div>
               )}
