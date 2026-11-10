@@ -14,13 +14,11 @@ export function useGoogleAuth() {
     const targetTenant = tenantId || env.defaultTenantId || 'HOSP-001'
 
     try {
-      // 1. Attempt JSON exchange first to get auth_url cleanly through proxy
-      const authUrl = await authApi.getGoogleAuthUrl(targetTenant)
-      if (authUrl) {
-        window.location.href = authUrl
-        return
-      }
-      // 2. Direct redirect fallback
+      // 1. Check that Google sign-in is configured (a 501 shows as an error here, not as a raw JSON page).
+      await authApi.getGoogleAuthUrl(targetTenant)
+      // 2. Start the login as a full-page navigation, not with that auth_url: the backend then sets the
+      //    sc_oauth_state cookie on a top-level response, which browsers keep even when they drop cookies
+      //    set by an XHR (strict tracking prevention). The callback needs that cookie.
       authApi.loginWithGoogle(targetTenant)
     } catch (err) {
       // If endpoint returned specific error (e.g. 501 OAuth Not Configured or network issue)
