@@ -7,7 +7,7 @@ The clinical side of Sky Claims: doctors and medical records staff find patient 
 | Screen | Route | Status | Live today | Waiting on |
 |---|---|---|---|---|
 | [S05 Patient documents](patient_documents_S05.md) | `/documents` (landing) | Wired | List, tiles, filters, page text, Request re-scan (N7) | Search inside the text (models) |
-| [S06 Ask about a patient](ask_patient_S06.md) | `/ask` | Hidden | — | The models (`VITE_ENABLE_ASK=true` shows it) |
+| [S06 Ask about a patient](ask_patient_S06.md) | `/ask` | Hidden | — | The models (`VITE_ENABLE_CLINICAL_ASK=true` shows it) |
 | [S07 Patient summary](patient_summary_S07.md) | `/patients/:id` | Wired | Header (N3), documents (N1) | Timeline (N4, models) |
 | [S08 My to-dos](my_todos_S08.md) | `/todos` | Wired | To do (N5, N6, upload) · Sent-back claims (gap reports with progress) | Report download (backend) |
 

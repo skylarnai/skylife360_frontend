@@ -16,7 +16,7 @@ Let a doctor pick one of their patients and ask questions in plain words. Answer
 
 ## 2. Users and permissions
 
-`rag:ask`. A doctor (`VIEWER`) can only ask about assigned patients: the backend returns `403 UNAUTHORIZED_USER` for anyone else. The Ask tab and the S05 "Ask about this patient →" button are hidden unless `VITE_ENABLE_ASK=true`, because answers need an LLM configured on the backend.
+`rag:ask`. A doctor (`VIEWER`) can only ask about assigned patients: the backend returns `403 UNAUTHORIZED_USER` for anyone else. The Ask tab and the S05 "Ask about this patient →" button are hidden unless `VITE_ENABLE_CLINICAL_ASK=true` (or `VITE_ENABLE_ASK=true`, which also turns on the Admin desk Ask step), because answers need an LLM configured on the backend.
 
 ## 3. Layout
 

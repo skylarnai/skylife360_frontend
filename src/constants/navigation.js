@@ -34,7 +34,7 @@ export const CLINICAL_TABS = [
     to: ROUTES.DOCUMENTS,
     isActive: (pathname) => pathname.startsWith(ROUTES.DOCUMENTS),
   },
-  ...(env.enableAsk
+  ...(env.enableClinicalAsk
     ? [
         {
           key: 'ask',

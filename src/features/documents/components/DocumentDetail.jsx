@@ -199,7 +199,7 @@ export function DocumentDetail({ file, patient, query }) {
 
       {ready && (
         <div className="row">
-          {env.enableAsk && (
+          {env.enableClinicalAsk && (
             <Button
               size="sm"
               variant="pri"

@@ -48,7 +48,11 @@ function PatientQuestions({ patientId, questions }) {
 
       {isError && (
         <ErrorBox
-          message={error?.message || 'Could not get an answer for this question.'}
+          message={
+            error?.code === 'LLM_PROVIDER_ERROR' || error?.status === 502
+              ? 'Answers are not available yet: no answer model is configured on the server. Ask your administrator to set one up.'
+              : error?.message || 'Could not get an answer for this question.'
+          }
           onRetry={() => activeQuery && handleAsk(activeQuery, selectedIdx)}
         />
       )}

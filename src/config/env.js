@@ -5,6 +5,11 @@ export const env = {
   apiPrefix: import.meta.env.VITE_API_PREFIX || '/api/v1',
   // Ask (RAG answers) needs an LLM on the backend; off until one is configured.
   enableAsk: String(import.meta.env.VITE_ENABLE_ASK).toLowerCase() === 'true',
+  // Ask for the Doctor / Staff flow only (S06 tab + "Ask about this patient" button). The Admin
+  // claim-desk Ask step and search-inside-text stay on VITE_ENABLE_ASK. VITE_ENABLE_ASK=true implies this.
+  enableClinicalAsk:
+    String(import.meta.env.VITE_ENABLE_ASK).toLowerCase() === 'true' ||
+    String(import.meta.env.VITE_ENABLE_CLINICAL_ASK).toLowerCase() === 'true',
   showApiPanel: String(import.meta.env.VITE_SHOW_API_PANEL).toLowerCase() === 'true',
   defaultTenantId: import.meta.env.VITE_DEFAULT_TENANT_ID || 'HOSP-001',
 }
