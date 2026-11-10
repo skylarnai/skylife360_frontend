@@ -23,8 +23,9 @@ export const PERMISSIONS = {
 }
 
 // Fallback only: used when /auth/me returns no `permissions` list. The backend list always wins
-// (an admin can give any user custom permissions). Mirrors the backend defaults as of dev@4e426c0:
-// MEMBER no longer has integrity:view / integrity:clear / claims:approve.
+// (an admin can give any user custom permissions). Mirrors the backend defaults: MEMBER has no
+// integrity:view / integrity:clear / claims:approve, and no claim desk (claims:intake / gaps:run /
+// packets:build): the admin creates claims and runs Check gaps; staff upload, re-scan and resolve to-dos.
 export const ROLE_PERMISSIONS = {
   [ROLES.ADMIN]: [
     PERMISSIONS.FILES_UPLOAD,
@@ -49,9 +50,6 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.FILES_UPLOAD,
     PERMISSIONS.DOCS_READ,
     PERMISSIONS.RAG_ASK,
-    PERMISSIONS.CLAIMS_INTAKE,
-    PERMISSIONS.GAPS_RUN,
-    PERMISSIONS.PACKETS_BUILD,
     PERMISSIONS.TASKS_RESOLVE,
   ],
   [ROLES.COMPLIANCE]: [
@@ -64,6 +62,8 @@ export const ROLE_PERMISSIONS = {
 // Any one of these opens the Claims worklist and the claim desk, whatever the role
 // (e.g. a doctor who is also a reviewer). The backend enforces each action separately.
 export const CLAIM_DESK_PERMISSIONS = [
+  PERMISSIONS.CLAIMS_INTAKE,
+  PERMISSIONS.GAPS_RUN,
   PERMISSIONS.CLAIMS_APPROVE,
   PERMISSIONS.CLAIMS_SUBMIT,
   PERMISSIONS.INTEGRITY_VIEW,

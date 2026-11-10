@@ -14,7 +14,7 @@ export const BACKEND_ROLES = [
     label: 'Records staff',
     chip: 'STAFF',
     tone: 'teal',
-    help: 'Whole hospital. Upload, intake, gaps, packets. No integrity, approve or submit.',
+    help: 'Whole hospital. Upload documents, re-scan, resolve to-dos. No claim desk, integrity, approve or submit.',
   },
   {
     value: 'VIEWER',
@@ -46,15 +46,7 @@ const ALL = Object.values(PERMISSIONS).filter((p) => p !== PERMISSIONS.TASKS_VIE
 export const ROLE_DEFAULT_PERMISSIONS = {
   SUPER_ADMIN: ALL,
   ADMIN: ALL,
-  MEMBER: [
-    PERMISSIONS.FILES_UPLOAD,
-    PERMISSIONS.DOCS_READ,
-    PERMISSIONS.RAG_ASK,
-    PERMISSIONS.CLAIMS_INTAKE,
-    PERMISSIONS.GAPS_RUN,
-    PERMISSIONS.PACKETS_BUILD,
-    PERMISSIONS.TASKS_RESOLVE,
-  ],
+  MEMBER: [PERMISSIONS.FILES_UPLOAD, PERMISSIONS.DOCS_READ, PERMISSIONS.RAG_ASK, PERMISSIONS.TASKS_RESOLVE],
   VIEWER: [PERMISSIONS.DOCS_READ, PERMISSIONS.RAG_ASK, PERMISSIONS.TASKS_RESOLVE],
 }
 
