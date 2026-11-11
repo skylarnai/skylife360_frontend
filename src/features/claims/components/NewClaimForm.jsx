@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { patientsApi } from '@/features/patients/api/patientsApi'
+import { isMaskedValue } from '@/utils/phi'
 import { Button, CardPad, ErrorBox, Select, TextInput } from '@/components/ui'
 import { uploadErrorMessage } from '@/features/ingestion/utils/fileResultView'
 import { useCreateClaim } from '../hooks/useCreateClaim'
@@ -59,7 +60,12 @@ export function NewClaimForm({ onCreated, onCancel }) {
         const next = { ...prev }
         Object.entries(PATIENT_PREFILL).forEach(([field, from]) => {
           const value = patient?.[from]
-          if (!String(prev[field] ?? '').trim() && value !== null && value !== undefined) {
+          if (
+            !String(prev[field] ?? '').trim() &&
+            value !== null &&
+            value !== undefined &&
+            !isMaskedValue(value)
+          ) {
             next[field] = String(value)
           }
         })

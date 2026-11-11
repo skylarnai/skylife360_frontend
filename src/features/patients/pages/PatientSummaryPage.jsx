@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { ApiRail } from '@/components/dev/ApiRail'
 import { PATIENT_SUMMARY_APIS } from '@/constants/doctorFlowApis'
+import { MaskedDataNote } from '@/components/common'
 import { CardPad, Chip, ErrorBox, Lbl, Note } from '@/components/ui'
 import { getClaimStageInfo, getFileStatusInfo } from '@/constants/statusMaps'
 import { useDocuments } from '@/features/documents/hooks/useDocuments'
@@ -125,6 +126,7 @@ export function PatientSummaryPage() {
       <CardPad className="main stack">
         <div className="between">
           <h2 style={{ fontSize: '18px' }}>Patient summary</h2>
+          <MaskedDataNote />
           <PatientPicker
             patients={patients}
             value={patientId}

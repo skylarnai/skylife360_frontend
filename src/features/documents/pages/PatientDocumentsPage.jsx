@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ApiRail } from '@/components/dev/ApiRail'
 import { PATIENT_DOCUMENTS_APIS } from '@/constants/doctorFlowApis'
-import { ActivityRail } from '@/components/common'
+import { ActivityRail, MaskedDataNote } from '@/components/common'
 import { ErrorBox, Note, Pagination, SearchInput, Select, Tile, TileGrid } from '@/components/ui'
 import { env } from '@/config/env'
 import { DOC_TYPE_MAP } from '@/constants/statusMaps'
@@ -133,6 +133,7 @@ export function PatientDocumentsPage() {
           {isScopedToGrants ? 'Your patients only' : 'Whole hospital'}
         </span>
       </div>
+      <MaskedDataNote />
 
       <TileGrid>
         <Tile label="documents" value={counts.documents ?? allItems.length} />

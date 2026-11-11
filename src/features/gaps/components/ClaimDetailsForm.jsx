@@ -1,3 +1,4 @@
+import { isMaskedValue } from '@/utils/phi'
 import { Button, Note } from '@/components/ui'
 
 /**
@@ -28,8 +29,14 @@ export function ClaimDetailsForm({
     })
   }
 
+  // Prefilled from a masked claim (the user has no phi:unmasked): these must be replaced, never sent.
+  const maskedSubscriber = ['member_id', 'first_name', 'last_name'].some((field) =>
+    isMaskedValue(formData.subscriber?.[field]),
+  )
+
   const canSubmit =
     !loading &&
+    !maskedSubscriber &&
     !extracting &&
     Boolean(formData.consent?.processing) &&
     Boolean(formData.payer_id) &&
@@ -230,6 +237,12 @@ export function ClaimDetailsForm({
 
       {!formData.consent?.processing && (
         <Note>Confirming patient consent is mandatory before running the rule engine.</Note>
+      )}
+      {maskedSubscriber && (
+        <Note>
+          The policy / member ID or name is masked for your role. Enter the real values, or ask an
+          admin to run the gap check.
+        </Note>
       )}
 
       <div className="row" style={{ marginTop: '4px' }}>
