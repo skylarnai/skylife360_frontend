@@ -27,11 +27,15 @@ export const payerApi = {
     return data
   },
 
-  /** POST .../query-response { documents[], note } (claims:submit): answer a QUERY_RAISED claim. */
-  async respondToQuery(submissionId, { documents = [], note }) {
+  /**
+   * POST .../query-response { documents[], note, fields? } (claims:submit): answer a QUERY_RAISED claim.
+   * `fields`: claim fields the payer asked for (required_actions[].fields), e.g. { preauth_ref } for Q05.
+   */
+  async respondToQuery(submissionId, { documents = [], note, fields }) {
+    const hasFields = fields && Object.keys(fields).length > 0
     const { data } = await httpClient.post(
       `/claims/submissions/${enc(submissionId)}/query-response`,
-      { documents, ...(note ? { note } : {}) },
+      { documents, ...(note ? { note } : {}), ...(hasFields ? { fields } : {}) },
     )
     return data
   },

@@ -15,6 +15,9 @@ const panelStyle = {
 
 const LINE_TONE = { REJECT: 'red', QUERY: 'amb', DEDUCT: 'amb' }
 
+// Claim fields a query answer may carry (backend payer_gateway QUERY_ANSWER_FIELDS).
+const FIELD_LABELS = { preauth_ref: 'Pre-authorisation reference' }
+
 function DocumentPicker({ value, onChange, suggested = [], disabled }) {
   const options = [...new Set([...suggested, ...PAYER_DOCUMENT_TYPES])]
   const toggle = (code) =>
@@ -50,16 +53,26 @@ function DocumentPicker({ value, onChange, suggested = [], disabled }) {
 /** One hospital action at the payer: a short form, then the call. */
 function ActionForm({ kind, payerStatus, mutation, onDone }) {
   const requested = (payerStatus.required_actions || []).flatMap((a) => a.documents || [])
+  // Claim fields the payer asked for (e.g. Q05 preauth_ref); only these are accepted by the backend.
+  const requestedFields = [
+    ...new Set((payerStatus.required_actions || []).flatMap((a) => a.fields || [])),
+  ].filter((f) => f in FIELD_LABELS)
   const [documents, setDocuments] = useState(kind === 'respond' ? requested : [])
+  const [fieldValues, setFieldValues] = useState({})
   const [text, setText] = useState('')
+  const filledFields = Object.fromEntries(
+    Object.entries(fieldValues)
+      .map(([k, v]) => [k, String(v).trim()])
+      .filter(([, v]) => v)
+  )
 
   const config = {
     respond: {
       title: 'Answer the payer’s query',
       textLabel: 'Note to the payer (optional if you send the documents)',
       button: 'Send answer',
-      ready: documents.length > 0 || text.trim(),
-      body: () => ({ documents, note: text.trim() || undefined }),
+      ready: documents.length > 0 || Object.keys(filledFields).length > 0 || text.trim(),
+      body: () => ({ documents, fields: filledFields, note: text.trim() || undefined }),
     },
     appeal: {
       title: 'Appeal the rejection',
@@ -89,6 +102,22 @@ function ActionForm({ kind, payerStatus, mutation, onDone }) {
   return (
     <div style={{ ...panelStyle, background: 'var(--surface)' }}>
       <b>{config.title}</b>
+      {kind === 'respond' &&
+        requestedFields.map((f) => (
+          <div className="field" key={f}>
+            <label className="small muted" htmlFor={`pq-${f}`}>
+              {FIELD_LABELS[f]} (asked for by the payer)
+            </label>
+            <input
+              id={`pq-${f}`}
+              className="input"
+              maxLength={40}
+              disabled={mutation.isPending}
+              value={fieldValues[f] || ''}
+              onChange={(e) => setFieldValues((v) => ({ ...v, [f]: e.target.value }))}
+            />
+          </div>
+        ))}
       {kind !== 'withdraw' && (
         <>
           <span className="small muted">

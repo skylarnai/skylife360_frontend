@@ -145,7 +145,11 @@ export function ApproveSubmitStep() {
   const minChars = task?.rationale_min_chars || 10
   const integrityPending = task?.stage === REVIEW_STAGE_INTEGRITY
 
-  const reviewerName = user?.name || 'the reviewer'
+  // Who decided comes from the task's audit trail (the reviewer who adjudicated), not from whoever is viewing.
+  const decisionEntry = [...(task?.audit_trail || [])]
+    .reverse()
+    .find((e) => ['APPROVED', 'REJECTED', 'FALSE_POSITIVE'].includes(e.decision))
+  const reviewerName = decisionEntry?.reviewer_name || user?.name || 'the reviewer'
   const payerName =
     claim?.payer_name || submission?.payer_code || handoff?.payer_code || 'the payer'
 
@@ -351,9 +355,12 @@ export function ApproveSubmitStep() {
               </Pill>
             </div>
 
-            {desk.note && (
+            {(decisionEntry?.rationale || desk.note) && (
               <div className="small muted" style={{ fontSize: '13.5px' }}>
-                <b>Reason:</b> {desk.note}
+                <b>Reason:</b> {decisionEntry?.rationale || desk.note}
+                {decisionEntry?.created_at
+                  ? ` · ${new Date(decisionEntry.created_at).toLocaleString()}`
+                  : ''}
               </div>
             )}
 
