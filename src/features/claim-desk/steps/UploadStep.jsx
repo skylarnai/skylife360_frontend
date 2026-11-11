@@ -27,6 +27,7 @@ export function UploadStep() {
   const navigate = useNavigate()
   const { log } = useActivity()
   const canUpload = usePermission(PERMISSIONS.FILES_UPLOAD)
+  const canOpenOriginal = usePermission(PERMISSIONS.PHI_UNMASKED)
   const { claim, isLoadingClaim, updateDesk } = useClaimDesk(claimId)
 
   // Every document on the claim, across all uploads (GET /claims/{id}/documents).
@@ -160,7 +161,7 @@ export function UploadStep() {
           <UploadResultsTable
             batch={documentsQuery.data}
             loading={documentsQuery.isLoading}
-            onOpen={(row) => openFile(row.id)}
+            onOpen={canOpenOriginal ? (row) => openFile(row.id) : undefined}
             onRemove={canUpload ? handleRemoveDocument : undefined}
             openingId={openingId}
             removingId={deleteMutation.isPending ? deleteMutation.variables : null}

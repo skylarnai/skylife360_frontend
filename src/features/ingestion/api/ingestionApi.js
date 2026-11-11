@@ -85,12 +85,13 @@ export const ingestionApi = {
   },
 
   /**
-   * GET /api/v1/files/{file_id}/text?page= (READY)
-   * → { file_id, page, total_pages, text, has_ocr }
+   * GET /api/v1/files/{file_id}/text?page=&raw= (READY)
+   * → { file_id, page, total_pages, text, has_ocr, masked, can_view_original }
+   * Masked by default; raw=true (phi:unmasked only, audited) returns the original text.
    */
-  async getFileText(fileId, page = 1) {
+  async getFileText(fileId, page = 1, raw = false) {
     const { data } = await httpClient.get(`/files/${encodeURIComponent(fileId)}/text`, {
-      params: { page },
+      params: raw ? { page, raw: true } : { page },
     })
     return data
   },

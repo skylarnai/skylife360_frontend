@@ -4,12 +4,17 @@ import { Button, ErrorBox } from '@/components/ui'
 import { ingestionApi } from '../api/ingestionApi'
 import { uploadErrorMessage } from '../utils/fileResultView'
 
-/** The text read from one file, a page at a time (GET /files/{id}/text?page=). */
+/**
+ * The text read from one file, a page at a time (GET /files/{id}/text?page=).
+ * Names, ids and dates come back masked; users with phi:unmasked can switch to the original
+ * (each original view is audited on the server).
+ */
 export function FileTextPanel({ fileId }) {
   const [page, setPage] = useState(1)
+  const [showOriginal, setShowOriginal] = useState(false)
   const textQuery = useQuery({
-    queryKey: ['file-text', fileId, page],
-    queryFn: () => ingestionApi.getFileText(fileId, page),
+    queryKey: ['file-text', fileId, page, showOriginal],
+    queryFn: () => ingestionApi.getFileText(fileId, page, showOriginal),
     enabled: Boolean(fileId),
     placeholderData: (previous) => previous,
   })
@@ -23,6 +28,20 @@ export function FileTextPanel({ fileId }) {
 
   return (
     <div style={{ display: 'grid', gap: '8px', marginTop: '8px' }}>
+      {data && (
+        <div className="row" style={{ gap: '8px', alignItems: 'center' }}>
+          <span className="small muted">
+            {data.masked
+              ? 'Names, IDs and dates are masked.'
+              : 'Original text. This view is recorded in the audit log.'}
+          </span>
+          {data.can_view_original && (
+            <Button size="sm" onClick={() => setShowOriginal((v) => !v)} aria-pressed={showOriginal}>
+              {showOriginal ? 'Show masked' : 'Show original'}
+            </Button>
+          )}
+        </div>
+      )}
       <pre
         className="small"
         style={{

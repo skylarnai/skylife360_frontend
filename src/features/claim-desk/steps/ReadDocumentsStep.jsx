@@ -11,7 +11,9 @@ import {
   toReadTiles,
   uploadErrorMessage,
 } from '@/features/ingestion/utils/fileResultView'
+import { PERMISSIONS } from '@/constants/permissions'
 import { useActivity } from '@/hooks/useActivity'
+import { usePermission } from '@/hooks/usePermission'
 import { ASK_STEP_ENABLED } from '../constants'
 import { useClaimDesk } from '../hooks/useClaimDesk'
 
@@ -34,6 +36,8 @@ export function ReadDocumentsStep() {
   const documentsQuery = useClaimDocuments(claimId)
   const retryMutation = useRetryFiles(claimId)
   const { openFile, openingId, error: openError } = useOpenFile()
+  // The original file is not masked: only for users with phi:unmasked.
+  const canOpenOriginal = usePermission(PERMISSIONS.PHI_UNMASKED)
 
   const files = documentsQuery.data?.files || []
   const rows = toReadRows(files)
@@ -116,7 +120,7 @@ export function ReadDocumentsStep() {
               row={row}
               onRetry={handleRetryFile}
               retrying={retryMutation.isPending}
-              onOpen={openFile}
+              onOpen={canOpenOriginal ? openFile : undefined}
               opening={openingId === row.id}
             />
           ))

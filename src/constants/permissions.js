@@ -20,6 +20,8 @@ export const PERMISSIONS = {
   TASKS_VIEW: 'tasks:view',
   RULES_MANAGE: 'rules:manage',
   USERS_MANAGE: 'users:manage',
+  // Original (unmasked) document text and files; ADMIN / SUPER_ADMIN by default.
+  PHI_UNMASKED: 'phi:unmasked',
 }
 
 // Fallback only: used when /auth/me returns no `permissions` list. The backend list always wins
@@ -42,6 +44,7 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.TASKS_VIEW,
     PERMISSIONS.RULES_MANAGE,
     PERMISSIONS.USERS_MANAGE,
+    PERMISSIONS.PHI_UNMASKED,
   ],
   // Backend VIEWER (normalizeRole maps VIEWER -> DOCTOR)
   [ROLES.DOCTOR]: [PERMISSIONS.DOCS_READ, PERMISSIONS.RAG_ASK, PERMISSIONS.TASKS_RESOLVE],
