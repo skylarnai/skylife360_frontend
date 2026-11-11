@@ -68,9 +68,12 @@ export function useClaimDesk(claimId) {
     if (claimId && desk.claimId !== claimId) resetDesk(claimId)
   }, [claimId, desk.claimId, resetDesk])
 
-  // The claim's latest packet and pipeline stage. Desk state lives in this browser's memory only, so a
-  // second reviewer (another window or browser) needs this to find the packet to approve.
-  // GET /claims/{id} doesn't return it yet; the worklist row does (search by claim ID).
+  // The claim's latest run (intake, packet, integrity run, review task…) and pipeline stage come with
+  // GET /claims/{id} (`latest`, `pipeline_stage`), so any admin in any browser picks up where the claim
+  // is. Desk state (this browser's memory) still wins for a run made here.
+  // Older backend without `latest`: fall back to the worklist row (search by claim ID).
+  const claimLoaded = Boolean(claimQuery.data)
+  const hasLatestField = claimLoaded && claimQuery.data.latest !== undefined
   const latestQuery = useQuery({
     queryKey: ['claims', 'latest-packet', claimId],
     queryFn: async () => {
@@ -78,9 +81,10 @@ export function useClaimDesk(claimId) {
       const row = (data?.items || []).find((c) => c.claim_id === claimId)
       return { packetId: row?.packet_id || null, pipelineStage: row?.pipeline_stage || null }
     },
-    enabled: Boolean(claimId),
+    enabled: Boolean(claimId) && claimLoaded && !hasLatestField,
     staleTime: 15_000,
   })
+  const latest = claimQuery.data?.latest || null
 
   // A claim with stored documents counts as uploaded, even after a refresh.
   const uploaded = desk.uploaded || (claimQuery.data?.document_counts?.files ?? 0) > 0
@@ -103,8 +107,9 @@ export function useClaimDesk(claimId) {
     isLoadingClaim: claimQuery.isLoading,
     claimError: claimQuery.error,
     refetchClaim: claimQuery.refetch,
-    latestPacketId: latestQuery.data?.packetId || null,
-    pipelineStage: latestQuery.data?.pipelineStage || null,
+    latest,
+    latestPacketId: latest?.packet_id || latestQuery.data?.packetId || null,
+    pipelineStage: claimQuery.data?.pipeline_stage || latestQuery.data?.pipelineStage || null,
     desk: { ...desk, uploaded },
     updateDesk: desk.updateDesk,
     resetDesk: desk.resetDesk,

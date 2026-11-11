@@ -20,17 +20,19 @@ export function IntegrityStep() {
   const { log } = useActivity()
   const apiPanel = useUiStore((state) => state.apiPanel)
 
-  const { desk, updateDesk } = useClaimDesk(claimId)
+  const { desk, updateDesk, latest } = useClaimDesk(claimId)
 
   // Retrieve batch, intake, or explicit integrity run ID from URL or desk store
   const batchId = searchParams.get('batch') || desk.batchId
-  const intakeId = searchParams.get('intake') || desk.intakeId
+  // URL, then this browser's run, then the claim's latest run (another admin or browser)
+  const intakeId = searchParams.get('intake') || desk.intakeId || latest?.intake_id || null
 
   const intakeQuery = useIntake(intakeId)
 
   // Use integrity_run_id from intake if present, or fallback to desk store
-  const runId = intakeQuery.data?.integrity_run_id || desk.integrityRunId
-  const packetId = intakeQuery.data?.packet_id || desk.packetId
+  const runId =
+    intakeQuery.data?.integrity_run_id || desk.integrityRunId || latest?.integrity_run_id || null
+  const packetId = intakeQuery.data?.packet_id || desk.packetId || latest?.packet_id || null
 
   // GET /integrity/runs/{id} and POST /integrity/check need integrity:view (403 INSUFFICIENT_PERMISSIONS).
   const canViewIntegrity = usePermission(PERMISSIONS.INTEGRITY_VIEW)

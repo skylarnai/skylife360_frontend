@@ -12,6 +12,7 @@ export function ClaimDetailsForm({
   loading = false,
   extracting = false,
   docSummary,
+  providerOptional = false,
 }) {
   const handleChange = (field, value) => {
     onChange?.({ ...formData, [field]: value })
@@ -35,8 +36,8 @@ export function ClaimDetailsForm({
     Boolean(formData.subscriber?.member_id) &&
     Boolean(formData.subscriber?.first_name) &&
     Boolean(formData.subscriber?.last_name) &&
-    Boolean(formData.provider?.provider_id) &&
-    Boolean(formData.provider?.name) &&
+    (providerOptional ||
+      (Boolean(formData.provider?.provider_id) && Boolean(formData.provider?.name))) &&
     docSummary?.isReady
 
   return (
@@ -172,18 +173,20 @@ export function ClaimDetailsForm({
         </div>
 
         <div className="field">
-          <label className="small muted">Provider ID *</label>
+          <label className="small muted">Provider ID {providerOptional ? '' : '*'}</label>
           <input
             type="text"
             className="input"
-            required
+            required={!providerOptional}
             value={formData.provider?.provider_id || ''}
             onChange={(e) => handleNestedChange('provider', 'provider_id', e.target.value)}
           />
         </div>
 
         <div className="field">
-          <label className="small muted">Provider / Hospital Name *</label>
+          <label className="small muted">
+            Provider / Hospital Name {providerOptional ? '(hospital default)' : '*'}
+          </label>
           <input
             type="text"
             className="input"

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { EmptyStep } from '@/components/common/EmptyStep'
 import { useClaimDocuments } from '@/features/claims/hooks/useClaimDocuments'
@@ -11,7 +12,9 @@ import { useIntake } from '@/features/gaps/hooks/useIntake'
 import { usePacket } from '@/features/gaps/hooks/usePacket'
 import { useRunIntake } from '@/features/gaps/hooks/useRunIntake'
 import { getIntakeFilesSummary } from '@/features/gaps/utils/intakeFiles'
+import { claimQueryKey } from '@/features/claims/hooks/useClaimDocuments'
 import { useActivity } from '@/hooks/useActivity'
+import { useSession } from '@/hooks/useSession'
 import { useUiStore } from '@/store/uiStore'
 import { useClaimDesk } from '../hooks/useClaimDesk'
 
@@ -22,10 +25,25 @@ export function CheckGapsStep() {
   const { log } = useActivity()
   const apiPanel = useUiStore((state) => state.apiPanel)
 
-  const { claim, desk, updateDesk } = useClaimDesk(claimId)
+  const queryClient = useQueryClient()
+  const { hospital } = useSession()
+  const { claim, desk, updateDesk, latest } = useClaimDesk(claimId)
 
-  // Intake ID from ?intake= or the desk state; documents come from the claim itself
-  const intakeId = searchParams.get('intake') || desk.intakeId
+  // Intake ID from ?intake=, this browser's run, or the claim's latest run (GET /claims/{id} → latest),
+  // so a claim checked earlier (or by another admin) opens on its last results.
+  const intakeId = searchParams.get('intake') || desk.intakeId || latest?.intake_id || null
+
+  // The hospital is the provider on every claim (GET /auth/me → hospital, set in tenant settings).
+  // When it's configured the provider fields may stay empty: intake then uses the tenant's provider.
+  const tenantProvider =
+    hospital?.provider_id && hospital?.provider_name
+      ? {
+          provider_id: hospital.provider_id,
+          name: hospital.provider_name,
+          id_qualifier: hospital.provider_id_qualifier || 'PI',
+        }
+      : null
+  const [intakeWarnings, setIntakeWarnings] = useState([])
 
   const documentsQuery = useClaimDocuments(claimId)
   const intakeQuery = useIntake(intakeId)
@@ -94,7 +112,7 @@ export function CheckGapsStep() {
     setFormData((prev) => ({
       ...prev,
       user_id: keep(prev.user_id, claim.user_id),
-      payer_id: keep(prev.payer_id, claim.payer_id),
+      payer_id: keep(prev.payer_id, claim.payer_code),
       payer_name: keep(prev.payer_name, claim.payer_name),
       service_date: keep(prev.service_date, claim.service_date),
       subscriber: {
@@ -107,8 +125,11 @@ export function CheckGapsStep() {
       },
       provider: {
         ...prev.provider,
-        provider_id: keep(prev.provider.provider_id, claim.provider_id),
-        name: keep(prev.provider.name, claim.provider_name),
+        provider_id: keep(prev.provider.provider_id, tenantProvider?.provider_id),
+        name: keep(prev.provider.name, tenantProvider?.name),
+        id_qualifier: prev.provider.provider_id
+          ? prev.provider.id_qualifier
+          : tenantProvider?.id_qualifier || prev.provider.id_qualifier,
       },
     }))
   }
@@ -118,8 +139,12 @@ export function CheckGapsStep() {
 
     // Optional fields left empty are omitted (the backend reads "" as an invalid date / gender).
     const { birth_date, gender, ...subscriber } = formData.subscriber
+    // Provider left empty: the backend uses the tenant's (422 PROVIDER_NOT_CONFIGURED when unset).
+    const { provider, ...rest } = formData
+    const hasProvider = Boolean(provider.provider_id && provider.name)
     const payload = {
-      ...formData,
+      ...rest,
+      ...(hasProvider ? { provider } : {}),
       encounter_id: claimId,
       claim_id: claimId,
       user_id: claim?.user_id || formData.user_id,
@@ -146,6 +171,9 @@ export function CheckGapsStep() {
           integrityRunId: data.integrity_run_id,
         })
         setEditing(false)
+        // Intake saves the birth date on a claim without one, and warns (never overwrites) when it differs.
+        setIntakeWarnings(Array.isArray(data.warnings) ? data.warnings : [])
+        queryClient.invalidateQueries({ queryKey: claimQueryKey(claimId) })
         log(`ran gap check: intake ${data.intake_id} created`)
       },
     })
@@ -197,7 +225,14 @@ export function CheckGapsStep() {
                   audit trail.
                 </div>
               )}
+              {!editing && !claim?.patient?.birth_date && (
+                <div className="note small">
+                  Type the date of birth once: it&apos;s saved on the claim with this run and filled
+                  in next time.
+                </div>
+              )}
               <ClaimDetailsForm
+                providerOptional={Boolean(tenantProvider)}
                 formData={formData}
                 onChange={setFormData}
                 onSubmit={handleRunGaps}
@@ -220,6 +255,13 @@ export function CheckGapsStep() {
             </>
           ) : (
             <>
+              {intakeWarnings.length > 0 && (
+                <div className="note small" role="status">
+                  {intakeWarnings.map((w) => (
+                    <div key={w}>{w}</div>
+                  ))}
+                </div>
+              )}
               {gapRunQuery.isLoading && (
                 <div className="muted small" style={{ padding: '12px 0' }}>
                   Evaluating payer rules and building gap dossier…

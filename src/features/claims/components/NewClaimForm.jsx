@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { patientsApi } from '@/features/patients/api/patientsApi'
 import { Button, CardPad, ErrorBox, Select, TextInput } from '@/components/ui'
 import { uploadErrorMessage } from '@/features/ingestion/utils/fileResultView'
 import { useCreateClaim } from '../hooks/useCreateClaim'
@@ -9,9 +10,12 @@ const EMPTY = {
   patient_name: '',
   patient_sex: '',
   patient_age: '',
+  patient_birth_date: '',
   procedure_name: '',
   scheme: '',
   payer_name: '',
+  payer_code: '',
+  service_date: '',
   tpa_name: '',
   policy_number: '',
   treating_doctor: '',
@@ -25,12 +29,46 @@ const SEX_OPTIONS = [
   { value: 'U', label: 'Other / unknown' },
 ]
 
+// GET /patients/{id} → the new claim's empty fields (the backend also fills them from the latest claim).
+const PATIENT_PREFILL = {
+  patient_name: 'name',
+  patient_sex: 'sex',
+  patient_age: 'age',
+  patient_birth_date: 'birth_date',
+  policy_number: 'policy_number',
+  payer_name: 'payer_name',
+  treating_doctor: 'treating_doctor',
+}
+
 /** POST /claims: the patient is granted to this hospital automatically. */
 export function NewClaimForm({ onCreated, onCancel }) {
   const [form, setForm] = useState(EMPTY)
+  const [knownPatient, setKnownPatient] = useState(null)
   const createMutation = useCreateClaim()
 
   const set = (key) => (event) => setForm((prev) => ({ ...prev, [key]: event.target.value }))
+
+  // An existing patient: fill only the fields still empty. Unknown ID (404) or no access: nothing to fill.
+  const lookUpPatient = async () => {
+    const userId = form.user_id.trim()
+    if (!userId || knownPatient?.user_id === userId) return
+    try {
+      const patient = await patientsApi.getPatient(userId)
+      setKnownPatient(patient)
+      setForm((prev) => {
+        const next = { ...prev }
+        Object.entries(PATIENT_PREFILL).forEach(([field, from]) => {
+          const value = patient?.[from]
+          if (!String(prev[field] ?? '').trim() && value !== null && value !== undefined) {
+            next[field] = String(value)
+          }
+        })
+        return next
+      })
+    } catch {
+      setKnownPatient(null)
+    }
+  }
 
   const handleSubmit = (event) => {
     event.preventDefault()
@@ -60,8 +98,14 @@ export function NewClaimForm({ onCreated, onCancel }) {
               label="Patient ID *"
               value={form.user_id}
               onChange={set('user_id')}
+              onBlur={lookUpPatient}
               required
               autoFocus
+              hint={
+                knownPatient && knownPatient.user_id === form.user_id.trim()
+                  ? `Existing patient: details filled in from claim ${knownPatient.claim_id || 'on file'}`
+                  : undefined
+              }
             />
             <TextInput
               label="Claim ID"
@@ -87,6 +131,14 @@ export function NewClaimForm({ onCreated, onCancel }) {
               max="150"
               value={form.patient_age}
               onChange={set('patient_age')}
+            />
+            <TextInput
+              label="Date of birth"
+              type="date"
+              max={new Date().toISOString().slice(0, 10)}
+              value={form.patient_birth_date}
+              onChange={set('patient_birth_date')}
+              hint="Must agree with the age; checked against the documents"
             />
           </div>
         </fieldset>
@@ -125,6 +177,18 @@ export function NewClaimForm({ onCreated, onCancel }) {
               onChange={set('scheme')}
             />
             <TextInput label="Payer" value={form.payer_name} onChange={set('payer_name')} />
+            <TextInput
+              label="Payer ID"
+              placeholder="e.g. payer-01"
+              value={form.payer_code}
+              onChange={set('payer_code')}
+            />
+            <TextInput
+              label="Service date"
+              type="date"
+              value={form.service_date}
+              onChange={set('service_date')}
+            />
             <TextInput label="TPA" value={form.tpa_name} onChange={set('tpa_name')} />
             <TextInput
               label="Policy number"
