@@ -122,6 +122,24 @@ export function ClaimDetailsForm({
         </div>
 
         <div className="field">
+          <label className="small muted" htmlFor="cg-primary-dx">
+            Primary diagnosis (ICD-10)
+          </label>
+          <input
+            id="cg-primary-dx"
+            type="text"
+            className="input"
+            placeholder="Only if the documents' code is not read"
+            maxLength={32}
+            value={formData.primary_diagnosis_code || ''}
+            onChange={(e) => handleChange('primary_diagnosis_code', e.target.value.toUpperCase())}
+          />
+          <span className="small muted">
+            Copy it from the discharge summary. It replaces the codes read from the documents.
+          </span>
+        </div>
+
+        <div className="field">
           <label className="small muted">Policy / Member ID *</label>
           <input
             type="text"

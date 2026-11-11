@@ -115,6 +115,29 @@ export function IntegrityStep() {
     )
   }
 
+  // A packet with a hard gap (REJECTED_GAPS) is never integrity-checked: the backend answers
+  // 409 PACKET_NOT_CHECKABLE, so don't offer a button that can only fail.
+  const packetStatus = intakeQuery.data?.pipeline?.packet?.status
+  if (!runId && packetStatus === 'REJECTED_GAPS') {
+    return (
+      <>
+        <div className="between">
+          <h2 style={{ fontSize: '18px' }}>Integrity check</h2>
+          <span className="small muted">Runs on the claim packet</span>
+        </div>
+        <Note>
+          Integrity check skipped: Check gaps found a gap that rejects this claim, so it cannot be
+          approved. Send it back to the hospital or reject it in step 5.
+        </Note>
+        <div className="row">
+          <Button variant="pri" onClick={goToApprove}>
+            Next: approve & submit →
+          </Button>
+        </div>
+      </>
+    )
+  }
+
   const runData = integrityRunQuery.data
   const isBusy = runData?.status === 'QUEUED' || runData?.status === 'PROCESSING'
   const isCompleted = runData?.status === 'COMPLETED'

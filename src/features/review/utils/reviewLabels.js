@@ -13,6 +13,8 @@ const REVIEW_CODE_LABELS = {
   PACKET_QUARANTINED: 'The claim packet was set aside for review',
   INTEGRITY_SOFT_WARN: 'Integrity warning',
   DOCUMENT_IDENTITY_MISMATCH: 'The documents name a different patient',
+  MISSING_PRIMARY_DIAGNOSIS:
+    'No diagnosis code was read from the documents. Enter it in Check gaps and run again.',
 }
 
 // Users without integrity:view get these codes without the ":<CHECK>" suffix (the check name is hidden).

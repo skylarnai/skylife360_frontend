@@ -89,6 +89,7 @@ export function CheckGapsStep() {
     payer_id: '',
     payer_name: '',
     service_date: '',
+    primary_diagnosis_code: '',
     subscriber: { member_id: '', first_name: '', last_name: '', birth_date: '', gender: '' },
     provider: { provider_id: '', name: '', id_qualifier: 'PI' },
     consent: {
@@ -140,11 +141,15 @@ export function CheckGapsStep() {
     // Optional fields left empty are omitted (the backend reads "" as an invalid date / gender).
     const { birth_date, gender, ...subscriber } = formData.subscriber
     // Provider left empty: the backend uses the tenant's (422 PROVIDER_NOT_CONFIGURED when unset).
-    const { provider, ...rest } = formData
+    const { provider, primary_diagnosis_code: typedDx, ...rest } = formData
     const hasProvider = Boolean(provider.provider_id && provider.name)
+    const dx = String(typedDx || '').trim()
     const payload = {
       ...rest,
       ...(hasProvider ? { provider } : {}),
+      // A code typed here is sent as a caller fact and replaces the extracted diagnosis codes
+      // (fact_sources then shows "caller"); every other fact stays as extracted from the documents.
+      ...(dx ? { facts: { primary_diagnosis_code: dx, diagnosis_codes: [dx] } } : {}),
       encounter_id: claimId,
       claim_id: claimId,
       user_id: claim?.user_id || formData.user_id,
