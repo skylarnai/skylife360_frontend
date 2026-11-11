@@ -63,7 +63,7 @@ function ActionForm({ kind, payerStatus, mutation, onDone }) {
   const filledFields = Object.fromEntries(
     Object.entries(fieldValues)
       .map(([k, v]) => [k, String(v).trim()])
-      .filter(([, v]) => v)
+      .filter(([, v]) => v),
   )
 
   const config = {
@@ -217,14 +217,17 @@ export function PayerStatusPanel({
         <b style={{ fontSize: '15px' }}>At {payerName}</b>
         <div className="row" style={{ gap: '8px', alignItems: 'center' }}>
           <Pill tone={getPayerStatusTone(s.status)}>{s.status_label || s.status}</Pill>
-          <Button
-            size="sm"
-            loading={refresh.isPending}
-            onClick={() => refresh.mutate()}
-            title="Ask the payer for the latest status"
-          >
-            ↻ Refresh
-          </Button>
+          {/* Refresh calls the payer: claims:submit (backend 2f1840e) */}
+          {canAct && (
+            <Button
+              size="sm"
+              loading={refresh.isPending}
+              onClick={() => refresh.mutate()}
+              title="Ask the payer for the latest status"
+            >
+              ↻ Refresh
+            </Button>
+          )}
         </div>
       </div>
 
