@@ -3,14 +3,14 @@ import { httpClient } from '@/services/api/httpClient'
 export const submissionsApi = {
   /**
    * POST /api/v1/claims/submissions (READY)
-   * { packet_id } · 202 · QUEUED -> DISPATCHING -> SUBMITTED
+   * { packet_id, claim_type?, admission_date?, discharge_date?, preauth_ref?, documents?[],
+   *   mock_scenario? (admin, mock payers only) } · 202 · QUEUED -> DISPATCHING -> SUBMITTED
+   * Accepts a packet ID or the full body.
    */
-  async createSubmission(packetId) {
-    const { data } = await httpClient.post(
-      '/claims/submissions',
-      { packet_id: packetId },
-      { idempotent: true }
-    )
+  async createSubmission(packetIdOrBody) {
+    const body =
+      typeof packetIdOrBody === 'string' ? { packet_id: packetIdOrBody } : packetIdOrBody
+    const { data } = await httpClient.post('/claims/submissions', body, { idempotent: true })
     return data
   },
 

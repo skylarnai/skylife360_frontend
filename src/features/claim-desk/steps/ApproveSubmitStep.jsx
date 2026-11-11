@@ -7,6 +7,8 @@ import { intakeQueryKey, useIntake } from '@/features/gaps/hooks/useIntake'
 import { useBatch } from '@/features/ingestion/hooks/useBatch'
 import { useIntegrityRun } from '@/features/integrity/hooks/useIntegrityRun'
 import { AdjudicationForm } from '@/features/review/components/AdjudicationForm'
+import { PayerStatusPanel } from '@/features/payer/components/PayerStatusPanel'
+import { SubmitToPayerForm } from '@/features/payer/components/SubmitToPayerForm'
 import { IntegrityClearanceForm } from '@/features/review/components/IntegrityClearanceForm'
 import { PreApprovalChecklist } from '@/features/review/components/PreApprovalChecklist'
 import { SubmissionTracker } from '@/features/review/components/SubmissionTracker'
@@ -32,9 +34,9 @@ export function ApproveSubmitStep() {
   const { claimId } = useParams()
   const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
-  const { user } = useSession()
+  const { user, isAdmin } = useSession()
   const { log } = useActivity()
-  const { claim, desk, updateDesk, latestPacketId } = useClaimDesk(claimId)
+  const { claim, desk, updateDesk, latest, latestPacketId } = useClaimDesk(claimId)
 
   // The backend enforces these (403 INSUFFICIENT_PERMISSIONS); the UI only hides what would fail.
   const canApprove = usePermission(PERMISSIONS.CLAIMS_APPROVE)
@@ -44,7 +46,7 @@ export function ApproveSubmitStep() {
 
   // Retrieve batch and intake IDs from URL searchParams or desk state
   const batchId = searchParams.get('batch') || desk.batchId
-  const intakeId = searchParams.get('intake') || desk.intakeId
+  const intakeId = searchParams.get('intake') || desk.intakeId || latest?.intake_id || null
 
   // Live queries across the previous steps
   const intakeQuery = useIntake(intakeId)
@@ -60,7 +62,8 @@ export function ApproveSubmitStep() {
   // The intake's pipeline view says where the claim is now (review task, submission).
   const pipeline = intakeQuery.data?.pipeline || {}
   const [openedTaskId, setOpenedTaskId] = useState(null)
-  const reviewTaskId = pipeline.review?.task_id || openedTaskId || desk.reviewTaskId || null
+  const reviewTaskId =
+    pipeline.review?.task_id || openedTaskId || desk.reviewTaskId || latest?.review_task_id || null
 
   // Hand-off returned by the decision (review_auto_handoff): submission queued or gap report sent.
   // After a reload it comes back on the task (GET /reviews/{id} -> handoff).
@@ -88,6 +91,7 @@ export function ApproveSubmitStep() {
     handoff?.submission_id ||
     pipeline.submission?.submission_id ||
     desk.submissionId ||
+    latest?.submission_id ||
     null
   // Latest gap report for the packet (GET /claims/intake/{id} -> pipeline.gap_report), kept across reloads.
   const gapReport = pipeline.gap_report || null
@@ -203,10 +207,10 @@ export function ApproveSubmitStep() {
 
   // Manual fallback only: the decision already queues the submission unless the hand-off failed,
   // was skipped, or auto hand-off is off on the backend.
-  const handleSubmitToPayer = async () => {
+  const handleSubmitToPayer = async (body) => {
     if (!packetId) return
     try {
-      const res = await createSubmissionAsync(packetId)
+      const res = await createSubmissionAsync(body || packetId)
       if (res?.submission_id) {
         setLocalSubmissionId(res.submission_id)
         updateDesk({ submitted: true, submissionId: res.submission_id })
@@ -378,23 +382,25 @@ export function ApproveSubmitStep() {
               />
             )}
 
-            {showSubmitButton && (
-              <div className="row" style={{ marginTop: '6px' }}>
-                <Button variant="acc" loading={isSubmitting} onClick={handleSubmitToPayer}>
-                  Submit to {payerName}
-                </Button>
-              </div>
-            )}
-
             {submitBlockedByPermission && (
               <Note>
                 The claim is approved. Someone with the claims:submit permission must send it to{' '}
                 {payerName}.
               </Note>
             )}
-
-            {submitError && <ErrorBox message={submitError.message || 'Submission failed.'} />}
           </div>
+
+          {showSubmitButton && (
+            <SubmitToPayerForm
+              packetId={packetId}
+              payerName={payerName}
+              defaultAdmissionDate={claim?.service_date || claim?.admission_date || ''}
+              isAdmin={isAdmin}
+              onSubmit={handleSubmitToPayer}
+              isSubmitting={isSubmitting}
+              submitError={submitError}
+            />
+          )}
 
           {submissionId && (
             <SubmissionTracker
@@ -403,6 +409,15 @@ export function ApproveSubmitStep() {
               onRequeue={canSubmit ? (reason) => requeue({ submissionId, reason }) : undefined}
               isRequeueing={isRequeueing}
               requeueError={requeueError}
+            />
+          )}
+
+          {submissionId && String(submission?.status || '').toUpperCase() === 'SUBMITTED' && (
+            <PayerStatusPanel
+              submissionId={submissionId}
+              payerName={payerName}
+              canAct={canSubmit}
+              onChanged={refreshIntake}
             />
           )}
 

@@ -30,7 +30,8 @@ export function useSubmission(submissionId) {
   })
 
   const submitMutation = useMutation({
-    mutationFn: (packetId) => submissionsApi.createSubmission(packetId),
+    // A packet ID, or the full POST /claims/submissions body (claim type, dates, mock scenario…)
+    mutationFn: (packetIdOrBody) => submissionsApi.createSubmission(packetIdOrBody),
     onSuccess: (data) => {
       if (data?.submission_id) {
         queryClient.invalidateQueries({ queryKey: submissionQueryKey(data.submission_id) })

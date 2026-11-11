@@ -121,8 +121,20 @@ export const PIPELINE_STAGE_MAP = {
   READY_TO_RECHECK: { label: 'READY TO RECHECK', tone: 'ok' },
   SUBMITTING: { label: 'SUBMITTING', tone: 'grey' },
   SUBMITTED: { label: 'SUBMITTED', tone: 'ok' },
+  // Refused as invalid at the payer's intake (never reviewed)
   PAYER_REJECTED: { label: 'PAYER REJECTED', tone: 'red' },
   SUBMISSION_FAILED: { label: 'SEND FAILED', tone: 'red' },
+  // Once the payer acknowledged the submission, the stage follows the payer (payer gateway)
+  WITH_PAYER: { label: 'WITH PAYER', tone: 'teal' },
+  PAYER_QUERY: { label: 'PAYER QUERY', tone: 'amb' },
+  PAYER_APPROVED: { label: 'PAYER APPROVED', tone: 'ok' },
+  PAYER_PARTIALLY_APPROVED: { label: 'PARTLY APPROVED', tone: 'ok' },
+  PAYER_DENIED: { label: 'PAYER DENIED', tone: 'red' },
+  PAYER_APPEALED: { label: 'APPEALED', tone: 'teal' },
+  SETTLEMENT_PENDING: { label: 'PAYMENT PENDING', tone: 'ok' },
+  SETTLED: { label: 'SETTLED', tone: 'ok' },
+  CLOSED: { label: 'CLOSED', tone: 'grey' },
+  WITHDRAWN: { label: 'WITHDRAWN', tone: 'grey' },
 }
 
 export function getPipelineStageInfo(stage) {

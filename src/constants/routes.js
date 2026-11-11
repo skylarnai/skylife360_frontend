@@ -9,6 +9,7 @@ export const ROUTES = {
   CLAIM_DESK: '/claims/:claimId/:step',
   CLAIM_DESK_DEFAULT: '/claims/SUV-261028-01/upload',
   USERS: '/users',
+  INSURANCE: '/insurance',
   DOCUMENTS: '/documents',
   ASK: '/ask',
   PATIENT_SUMMARY: '/patients/:patientId',

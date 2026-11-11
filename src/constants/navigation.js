@@ -1,6 +1,6 @@
 import { env } from '@/config/env'
 import { ROUTES } from './routes'
-import { canUseClaimDesk, isAdminRole, PERMISSIONS } from './permissions'
+import { canUseClaimDesk, isAdminRole, normalizeRole, PERMISSIONS, ROLES } from './permissions'
 
 // Doctor / Staff flow (S05–S08), all on the real backend.
 export const DOCTOR_PANEL_ENABLED = true
@@ -17,6 +17,14 @@ export const ADMIN_TABS = [
     label: 'Work on a claim',
     to: ROUTES.CLAIM_DESK_DEFAULT,
     isActive: (pathname) => pathname.startsWith('/claims/'),
+  },
+  {
+    key: 'insurance',
+    label: 'Insurance',
+    to: ROUTES.INSURANCE,
+    // Mock insurer admin: ADMIN only (compliance users get 403 from the backend)
+    roles: [ROLES.ADMIN],
+    isActive: (pathname) => pathname.startsWith(ROUTES.INSURANCE),
   },
   {
     key: 'users',
@@ -67,7 +75,9 @@ const CLAIM_DESK_TAB_KEYS = ['worklist', 'desk']
  * - a doctor / staff user with a reviewer permission also gets Claims and Work on a claim.
  */
 export function getTabsForRole(role, permissions = []) {
-  const allowed = (tab) => !tab.permission || permissions.includes(tab.permission)
+  const allowed = (tab) =>
+    (!tab.permission || permissions.includes(tab.permission)) &&
+    (!tab.roles || tab.roles.includes(normalizeRole(role)))
   if (!DOCTOR_PANEL_ENABLED || isAdminRole(role)) {
     return ADMIN_TABS.filter(allowed)
   }

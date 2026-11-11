@@ -3,6 +3,7 @@ import { ActivityRail } from '@/components/common/ActivityRail'
 import { ApiRail } from '@/components/dev/ApiRail'
 import { CardPad, ErrorBox, Lbl, Pill } from '@/components/ui'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+import { getPipelineStageInfo } from '@/constants/statusMaps'
 import { formatMoney } from '@/utils/formatters'
 import { DESK_STEP_APIS, DESK_STEPS, getStepSnippet, SUGGESTED_QUESTIONS } from '../constants'
 import { useClaimDesk } from '../hooks/useClaimDesk'
@@ -27,8 +28,19 @@ export function ClaimDeskLayout() {
   const activeStepObj = DESK_STEPS.find((s) => s.key === step)
   useDocumentTitle(activeStepObj ? `${activeStepObj.title} · ${claimId}` : claimId)
 
-  const { claim, isLoadingClaim, claimError, refetchClaim, desk, gapsLeft, statusInfo } =
-    useClaimDesk(claimId)
+  const {
+    claim,
+    isLoadingClaim,
+    claimError,
+    refetchClaim,
+    desk,
+    gapsLeft,
+    statusInfo,
+    latest,
+    pipelineStage,
+  } = useClaimDesk(claimId)
+  // Once the payer has the claim, its stage (WITH_PAYER, PAYER_QUERY, SETTLED…) says more than the desk.
+  const payerStage = latest?.payer_status ? getPipelineStageInfo(pipelineStage) : null
 
   if (!activeStepObj) {
     // A disabled step (e.g. Ask) sends the user on to the next one instead of back to the start.
@@ -97,7 +109,12 @@ export function ClaimDeskLayout() {
             <Lbl style={{ display: 'block', fontSize: '11px' }}>Estimated claim value</Lbl>
           </div>
           <div className="row" style={{ justifyContent: 'flex-end' }}>
-            <Pill tone={statusInfo.tone}>{statusInfo.text}</Pill>
+            {payerStage ? (
+              <Pill tone={payerStage.tone}>{payerStage.label}</Pill>
+            ) : (
+              <Pill tone={statusInfo.tone}>{statusInfo.text}</Pill>
+            )}
+            {latest?.payer_is_mock && <Pill tone="grey">MOCK INSURER</Pill>}
             {desk.gapsRun && gapsLeft > 0 && !desk.submitted && (
               <Pill tone="amb">{gapsLeft} to fix</Pill>
             )}

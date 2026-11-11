@@ -114,8 +114,8 @@ export function SubmissionTracker({
 
       {isSubmitted && (
         <div className="small muted">
-          Payer reference: <b>{submission.payer_claim_reference || submission.submission_id}</b>. If
-          the payer returns any queries or a rejection, it will appear in your worklist.
+          Payer reference: <b>{submission.payer_claim_reference || submission.submission_id}</b>. The
+          payer&apos;s decision, queries and settlement show below and in the worklist stage.
         </div>
       )}
 

@@ -1,6 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { DOCTOR_PANEL_ENABLED } from '@/constants/navigation'
-import { CLAIM_DESK_PERMISSIONS, PERMISSIONS } from '@/constants/permissions'
+import { CLAIM_DESK_PERMISSIONS, PERMISSIONS, ROLES } from '@/constants/permissions'
 import { getLandingRoute, ROUTES } from '@/constants/routes'
 import { AppShell } from '@/components/layout/AppShell'
 import { ForgotPasswordPage } from '@/features/auth/pages/ForgotPasswordPage'
@@ -10,13 +10,14 @@ import { ResetPasswordPage } from '@/features/auth/pages/ResetPasswordPage'
 import { ClaimDeskLayout } from '@/features/claim-desk/pages/ClaimDeskLayout'
 import { ClaimsWorklistPage } from '@/features/claims/pages/ClaimsWorklistPage'
 import { UsersPage } from '@/features/users/pages/UsersPage'
+import { InsurancePage } from '@/features/payer/pages/InsurancePage'
 import { PatientDocumentsPage } from '@/features/documents/pages/PatientDocumentsPage'
 import { PatientSummaryPage } from '@/features/patients/pages/PatientSummaryPage'
 import { AskPatientPage } from '@/features/rag/pages/AskPatientPage'
 import { MyTodosPage } from '@/features/tasks/pages/MyTodosPage'
 import { FoundationShowcasePage } from '@/pages/FoundationShowcasePage'
 import { useSessionStore } from '@/store/sessionStore'
-import { PublicOnly, RequireAuth, RequirePermission } from './guards'
+import { PublicOnly, RequireAuth, RequirePermission, RequireRole } from './guards'
 
 // Doctor / Staff screens (S05–S08). Admins can open them too (docs:read); actions are gated by permission.
 const doctorAndStaffRoutes = DOCTOR_PANEL_ENABLED
@@ -87,6 +88,16 @@ export const router = createBrowserRouter([
           {
             path: ROUTES.CLAIM_DESK,
             element: <ClaimDeskLayout />,
+          },
+        ],
+      },
+      {
+        // Mock insurers and test policies: the backend allows admins only (403 otherwise).
+        element: <RequireRole roles={[ROLES.ADMIN]} />,
+        children: [
+          {
+            path: ROUTES.INSURANCE,
+            element: <InsurancePage />,
           },
         ],
       },
