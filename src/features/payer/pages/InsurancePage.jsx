@@ -79,10 +79,11 @@ const gridStyle = {
   gap: '10px',
 }
 
-const today = () => new Date().toISOString().slice(0, 10)
-const inOneYear = () => {
+// The mock insurer rejects claims inside the policy's waiting periods (R05: 30 days; R06: 2 years for a
+// declared pre-existing disease), so a new test policy starts 2 years back by default.
+const yearsFromNow = (years) => {
   const d = new Date()
-  d.setFullYear(d.getFullYear() + 1)
+  d.setFullYear(d.getFullYear() + years)
   return d.toISOString().slice(0, 10)
 }
 
@@ -207,8 +208,8 @@ const EMPTY_POLICY = () => ({
   policy_number: 'MOCK-POL-',
   member_ref: '',
   member_birth_date: '',
-  policy_start: today(),
-  policy_end: inOneYear(),
+  policy_start: yearsFromNow(-2),
+  policy_end: yearsFromNow(1),
   policy_status: 'ACTIVE',
   sum_insured: '500000',
   room_rent_cap_per_day: '',
@@ -275,6 +276,7 @@ function PolicyForm({ payers }) {
           type="date"
           value={form.policy_start}
           onChange={set('policy_start')}
+          hint="At least 31 days before admission (waiting period)"
           required
         />
         <TextInput

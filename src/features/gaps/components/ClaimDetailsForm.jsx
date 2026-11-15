@@ -129,13 +129,15 @@ export function ClaimDetailsForm({
             id="cg-primary-dx"
             type="text"
             className="input"
-            placeholder="Only if the documents' code is not read"
+            placeholder="e.g. K35.80"
             maxLength={32}
             value={formData.primary_diagnosis_code || ''}
             onChange={(e) => handleChange('primary_diagnosis_code', e.target.value.toUpperCase())}
           />
           <span className="small muted">
-            Copy it from the discharge summary. It replaces the codes read from the documents.
+            Copy it from the discharge summary. It replaces the codes read from the documents. Only
+            codes in the hospital&apos;s disease registry are read, and a claim without a primary
+            diagnosis can&apos;t be approved.
           </span>
         </div>
 
@@ -219,6 +221,25 @@ export function ClaimDetailsForm({
             onChange={(e) => handleNestedChange('provider', 'name', e.target.value)}
           />
         </div>
+      </div>
+
+      <div className="field">
+        <label className="small muted" htmlFor="cg-clinical-summary">
+          Clinical summary
+        </label>
+        <textarea
+          id="cg-clinical-summary"
+          className="input"
+          rows={3}
+          maxLength={2000}
+          placeholder="Course in hospital, from the discharge summary (optional)"
+          value={formData.clinical_summary || ''}
+          onChange={(e) => handleChange('clinical_summary', e.target.value)}
+        />
+        <span className="small muted">
+          Goes with the claim packet. The integrity check compares it with earlier claims to spot
+          resubmissions; without it, claims for the same procedure look alike.
+        </span>
       </div>
 
       {/* Consent Section */}

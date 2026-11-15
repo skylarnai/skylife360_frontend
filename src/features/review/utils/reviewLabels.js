@@ -14,7 +14,7 @@ const REVIEW_CODE_LABELS = {
   INTEGRITY_SOFT_WARN: 'Integrity warning',
   DOCUMENT_IDENTITY_MISMATCH: 'The documents name a different patient',
   MISSING_PRIMARY_DIAGNOSIS:
-    'No diagnosis code was read from the documents. Enter it in Check gaps and run again.',
+    'No primary diagnosis on the claim (a code the disease registry does not list is not read). Enter it in Check gaps and run again.',
 }
 
 // Users without integrity:view get these codes without the ":<CHECK>" suffix (the check name is hidden).

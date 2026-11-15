@@ -90,6 +90,7 @@ export function CheckGapsStep() {
     payer_name: '',
     service_date: '',
     primary_diagnosis_code: '',
+    clinical_summary: '',
     subscriber: { member_id: '', first_name: '', last_name: '', birth_date: '', gender: '' },
     provider: { provider_id: '', name: '', id_qualifier: 'PI' },
     consent: {
@@ -141,12 +142,19 @@ export function CheckGapsStep() {
     // Optional fields left empty are omitted (the backend reads "" as an invalid date / gender).
     const { birth_date, gender, ...subscriber } = formData.subscriber
     // Provider left empty: the backend uses the tenant's (422 PROVIDER_NOT_CONFIGURED when unset).
-    const { provider, primary_diagnosis_code: typedDx, ...rest } = formData
+    const {
+      provider,
+      primary_diagnosis_code: typedDx,
+      clinical_summary: typedSummary,
+      ...rest
+    } = formData
     const hasProvider = Boolean(provider.provider_id && provider.name)
     const dx = String(typedDx || '').trim()
+    const summary = String(typedSummary || '').trim()
     const payload = {
       ...rest,
       ...(hasProvider ? { provider } : {}),
+      ...(summary ? { clinical_summary: summary } : {}),
       // A code typed here is sent as a caller fact and replaces the extracted diagnosis codes
       // (fact_sources then shows "caller"); every other fact stays as extracted from the documents.
       ...(dx ? { facts: { primary_diagnosis_code: dx, diagnosis_codes: [dx] } } : {}),
@@ -195,6 +203,31 @@ export function CheckGapsStep() {
   const [editing, setEditing] = useState(false)
   const hasRun = Boolean(desk.gapsRun || intakeId)
   const showForm = !hasRun || editing
+
+  // Primary diagnosis. With a disease registry loaded, intake reads only the codes the registry knows;
+  // any other code on a diagnosis line comes back in unverified_codes, and the claim has no primary
+  // diagnosis (review blocker MISSING_PRIMARY_DIAGNOSIS: no one can approve it). The code typed in the
+  // form is not stored on the claim, so a re-run (after a send-back) starts from the last run's value.
+  const lastIntake = intakeQuery.data
+  const typedDxLastRun =
+    lastIntake?.fact_sources?.primary_diagnosis_code === 'caller'
+      ? lastIntake.facts?.primary_diagnosis_code || ''
+      : ''
+  const dxMissing = Boolean(lastIntake?.missing_facts?.includes('primary_diagnosis_code'))
+  const unverifiedCodes = Array.isArray(lastIntake?.unverified_codes)
+    ? lastIntake.unverified_codes
+    : []
+  const suggestedDx = typedDxLastRun || (dxMissing ? unverifiedCodes[0] || '' : '')
+
+  const startEditing = (dx = suggestedDx) => {
+    runIntakeMutation.startNewRun()
+    if (dx) {
+      setFormData((prev) =>
+        prev.primary_diagnosis_code ? prev : { ...prev, primary_diagnosis_code: dx },
+      )
+    }
+    setEditing(true)
+  }
 
   return (
     <>
@@ -267,6 +300,31 @@ export function CheckGapsStep() {
                   ))}
                 </div>
               )}
+              {dxMissing && (
+                <div className="note small" role="alert">
+                  <b>No primary diagnosis on this claim, so it can&apos;t be approved.</b>{' '}
+                  {unverifiedCodes.length > 0 ? (
+                    <>
+                      The documents give {unverifiedCodes.join(', ')}, which the hospital&apos;s
+                      disease registry doesn&apos;t list, so it was not read as the diagnosis. Check
+                      it against the discharge summary and run again with it as the primary
+                      diagnosis.
+                    </>
+                  ) : (
+                    <>
+                      No diagnosis code was read from the documents. Type it from the discharge
+                      summary in Primary diagnosis and run again.
+                    </>
+                  )}
+                  <div className="row" style={{ marginTop: '8px' }}>
+                    <Button onClick={() => startEditing(unverifiedCodes[0] || '')}>
+                      {unverifiedCodes.length > 0
+                        ? `Use ${unverifiedCodes[0]} and re-run`
+                        : 'Enter the diagnosis and re-run'}
+                    </Button>
+                  </div>
+                </div>
+              )}
               {gapRunQuery.isLoading && (
                 <div className="muted small" style={{ padding: '12px 0' }}>
                   Evaluating payer rules and building gap dossier…
@@ -288,14 +346,7 @@ export function CheckGapsStep() {
                 <Button variant="pri" onClick={goToIntegrity}>
                   Next: integrity check →
                 </Button>
-                <Button
-                  onClick={() => {
-                    runIntakeMutation.startNewRun()
-                    setEditing(true)
-                  }}
-                >
-                  ↺ Edit claim details and re-run
-                </Button>
+                <Button onClick={() => startEditing()}>↺ Edit claim details and re-run</Button>
               </div>
             </>
           )}
