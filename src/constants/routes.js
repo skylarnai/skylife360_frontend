@@ -1,0 +1,27 @@
+export const ROUTES = {
+  ROOT: '/',
+  LOGIN: '/login',
+  LOGIN_MFA: '/login/mfa',
+  FORGOT_PASSWORD: '/forgot-password',
+  RESET_PASSWORD: '/reset-password',
+  RESET_PASSWORD_WITH_TOKEN: '/reset-password/:token',
+  CLAIMS: '/claims',
+  CLAIM_DESK: '/claims/:claimId/:step',
+  CLAIM_DESK_DEFAULT: '/claims/SUV-261028-01/upload',
+  USERS: '/users',
+  INSURANCE: '/insurance',
+  DOCUMENTS: '/documents',
+  ASK: '/ask',
+  PATIENT_SUMMARY: '/patients/:patientId',
+  // "first" opens the first patient in the caller's list (see PatientSummaryPage)
+  PATIENT_DEFAULT: '/patients/first',
+  TODOS: '/todos',
+}
+
+export function getLandingRoute(role) {
+  const normalized = String(role || '').toUpperCase()
+  if (normalized === 'ADMIN' || normalized === 'COMPLIANCE' || normalized === 'SUPER_ADMIN') {
+    return ROUTES.CLAIMS
+  }
+  return ROUTES.DOCUMENTS
+}

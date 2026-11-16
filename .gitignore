@@ -9,3 +9,6 @@ dist
 .idea
 *.log
 .DS_Store
+
+# QA test data (may contain patient documents) — never commit
+test-data/

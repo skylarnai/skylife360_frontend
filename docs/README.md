@@ -4,9 +4,12 @@
 |---|---|
 | Product | Sky Claims by Skylarn AI (frontend for `sky_life_360_dev`) |
 | Reference prototype | [`docs/prototype/Sky_Claims_login_and_roles_v2.html`](prototype/Sky_Claims_login_and_roles_v2.html) (login, role-based navigation, every screen below; open it in a browser) |
-| Auth design | `Suvidha Hospital prototype/Sky Claims — Login, Authentication & Authorization.md` |
+| Auth design | `Suvidha Hospital prototype/Sky Claims — Login, Authentication & Authorization.md` · backend guide: `sky_life_360_dev/docs/FRONTEND_AUTH_UI_INTEGRATION_GUIDE.md` |
 | Backend | `D:\projects\sky_life_360_dev` · FastAPI · all paths under `/api/v1` |
-| Status | Screens are `Planned`. Build one at a time, in the order below. |
+| Status | See the screen map below. Admin screens are built and wired. The Doctor / Staff flow (S05, S07, S08) and Users & access (S04) are wired to the backend (`dev@49913f8`, including the to-dos that close the send-back loop). Ask (S06) and the timeline wait for the AI models. |
+| Manual testing | **[manual_test_guide.md](manual_test_guide.md)**: test cases for the 9–11 Nov backend + frontend changes (Google sign-in, roles, masking, payer / insurance) |
+| Start here | **[end_to_end_claim_flow.md](end_to_end_claim_flow.md)**: create users → open a claim → approve and submit → the doctor's to-do list |
+| Town hall | [Demo script](end_to_end_claim_flow.md#0-town-hall-demo-script) · [Payer gaps](02%20-%20Admin/Claim%20Desk/payer_gaps.md) (no payer is connected yet) · [Payer decision brief](02%20-%20Admin/Claim%20Desk/payer_decision_brief.md) · [Bug B1](02%20-%20Admin/Claim%20Desk/payer_handoff_bug_B1.md) |
 
 > **Team document standard (applies to every screen doc)**
 >
@@ -28,7 +31,7 @@
 
 | ID | Screen | Role | Route | Doc | API readiness |
 |---|---|---|---|---|---|
-| S00 | Foundation: theme, app shell, shared components, API client, auth guard | all | — | [00 - Foundation/foundation_S00.md](00%20-%20Foundation/foundation_S00.md) | — |
+| S00 | Foundation: theme, app shell, shared components, API client, auth guard | all | — | [00 - Foundation/foundation_S00.md](00%20-%20Foundation/foundation_S00.md) | Built |
 | S01 | Login | public | `/login` | [01 - Auth/login_S01.md](01%20-%20Auth/login_S01.md) | **NEEDED** (auth module) |
 | S02 | Claims worklist | Admin | `/claims` | [02 - Admin/claims_worklist_S02.md](02%20-%20Admin/claims_worklist_S02.md) | Partial |
 | S03 | Claim desk (shell + 6 steps) | Admin | `/claims/:claimId/:step` | [02 - Admin/Claim Desk/claim_desk_S03.md](02%20-%20Admin/Claim%20Desk/claim_desk_S03.md) | Mostly READY |
@@ -38,13 +41,30 @@
 | S03.4 | Step 4 · Check gaps + packet | Admin | `…/gaps` | [desk_check_gaps_S03.4.md](02%20-%20Admin/Claim%20Desk/desk_check_gaps_S03.4.md) | READY |
 | S03.5 | Step 5 · Integrity | Admin | `…/integrity` | [desk_integrity_S03.5.md](02%20-%20Admin/Claim%20Desk/desk_integrity_S03.5.md) | READY |
 | S03.6 | Step 6 · Approve & submit | Admin | `…/approve` | [desk_approve_submit_S03.6.md](02%20-%20Admin/Claim%20Desk/desk_approve_submit_S03.6.md) | READY |
-| S04 | Users & access | Admin | `/users` | [02 - Admin/users_access_S04.md](02%20-%20Admin/users_access_S04.md) | **NEEDED** |
-| S05 | Patient documents | Doctor / Staff | `/documents` | [03 - Doctor and Staff/patient_documents_S05.md](03%20-%20Doctor%20and%20Staff/patient_documents_S05.md) | Partial |
-| S06 | Ask about a patient | Doctor / Staff | `/ask` | [03 - Doctor and Staff/ask_patient_S06.md](03%20-%20Doctor%20and%20Staff/ask_patient_S06.md) | READY |
-| S07 | Patient summary | Doctor / Staff | `/patients/:patientId` | [03 - Doctor and Staff/patient_summary_S07.md](03%20-%20Doctor%20and%20Staff/patient_summary_S07.md) | **NEEDED** |
-| S08 | My to-dos | Doctor / Staff | `/todos` | [03 - Doctor and Staff/my_todos_S08.md](03%20-%20Doctor%20and%20Staff/my_todos_S08.md) | Partial |
+| S04 | Users & access | Admin | `/users` | [02 - Admin/users_access_S04.md](02%20-%20Admin/users_access_S04.md) | Wired |
+| S05 | Patient documents | Doctor / Staff | `/documents` | [03 - Doctor and Staff/patient_documents_S05.md](03%20-%20Doctor%20and%20Staff/patient_documents_S05.md) | Wired (N1, N2) |
+| S06 | Ask about a patient | Doctor / Staff | `/ask` | [03 - Doctor and Staff/ask_patient_S06.md](03%20-%20Doctor%20and%20Staff/ask_patient_S06.md) | Hidden until the models are on |
+| S07 | Patient summary | Doctor / Staff | `/patients/:patientId` | [03 - Doctor and Staff/patient_summary_S07.md](03%20-%20Doctor%20and%20Staff/patient_summary_S07.md) | Wired (N1–N3); timeline later |
+| S08 | My to-dos | Doctor / Staff | `/todos` | [03 - Doctor and Staff/my_todos_S08.md](03%20-%20Doctor%20and%20Staff/my_todos_S08.md) | Wired (N5–N7 to-dos + sent-back claims) |
 
 The full endpoint list (READY and NEEDED, which screen uses each) is in [api_catalog.md](api_catalog.md).
+
+The Doctor / Staff flow (S05–S08) runs on the real backend. Start at [03 - Doctor and Staff/README.md](03%20-%20Doctor%20and%20Staff/README.md); its APIs are in [doctor_flow_apis.md](03%20-%20Doctor%20and%20Staff/doctor_flow_apis.md).
+
+## Folder layout
+
+```
+docs/
+├── README.md                      this index
+├── api_catalog.md                 every endpoint, READY vs NEEDED
+├── prototype/                     reference HTML prototype
+├── 00 - Foundation/               S00
+├── 01 - Auth/                     S01 login · auth_user_setup.md (create users, roles, patient access)
+├── 02 - Admin/                    S02 worklist · S04 users
+│   └── Claim Desk/                S03 shell + S03.1–S03.6 screen docs
+│       └── integration/           build-time plans and notes per step (ingestion, gaps, integrity, approve)
+└── 03 - Doctor and Staff/         README (start here) · doctor_flow_apis.md · S05–S08
+```
 
 ## Role-based navigation (from the prototype)
 

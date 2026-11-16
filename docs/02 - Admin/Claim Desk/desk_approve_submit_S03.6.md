@@ -7,8 +7,10 @@
 | Route | `/claims/:claimId/approve` |
 | Prototype reference | `viewDesk()` with `step === 5`, actions `decide`, `undoDecision`, `submit` |
 | Depends on | S03.5 (integrity `COMPLETED`, review task open) |
-| Status | Planned |
+| Status | **Wired** (backend `4e426c0`): permissions per action, `handoff`, four-eyes rule, submission tracker with requeue |
 | API readiness | READY |
+
+> **Note:** Current behaviour, step by step: [end_to_end_claim_flow.md](../../end_to_end_claim_flow.md) §7.
 
 ## 1. Purpose
 
