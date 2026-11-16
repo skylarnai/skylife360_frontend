@@ -30,6 +30,38 @@ export function generateUUID() {
   })
 }
 
+// A retried write must carry the same Idempotency-Key, or the backend treats it as new work
+// (e.g. a submit that timed out after the backend queued it, then clicked again, would go to the
+// payer twice). Callers that pass their own key keep full control; otherwise the key is tied to
+// method + URL + body and reused until that request succeeds (or the entry ages out).
+const IDEMPOTENCY_KEY_TTL_MS = 15 * 60 * 1000
+const pendingIdempotencyKeys = new Map()
+
+function idempotencyFingerprint(method, url, data) {
+  // FormData / Blob bodies can't be compared; those callers pass an explicit key (see ingestionApi).
+  if (typeof FormData !== 'undefined' && data instanceof FormData) return null
+  if (typeof Blob !== 'undefined' && data instanceof Blob) return null
+  let body
+  try {
+    body = typeof data === 'string' ? data : JSON.stringify(data ?? null)
+  } catch {
+    return null
+  }
+  return `${method} ${url} ${body}`
+}
+
+function stableIdempotencyKey(fingerprint) {
+  const now = Date.now()
+  for (const [fp, entry] of pendingIdempotencyKeys) {
+    if (now - entry.createdAt > IDEMPOTENCY_KEY_TTL_MS) pendingIdempotencyKeys.delete(fp)
+  }
+  const existing = pendingIdempotencyKeys.get(fingerprint)
+  if (existing) return existing.key
+  const key = generateUUID()
+  pendingIdempotencyKeys.set(fingerprint, { key, createdAt: now })
+  return key
+}
+
 // In development, use relative prefix to route through Vite proxy and avoid browser CORS restrictions
 const resolvedBaseUrl =
   import.meta.env.DEV &&
@@ -58,7 +90,13 @@ httpClient.interceptors.request.use((config) => {
   }
 
   if (requiresIdempotencyKey(method, config.url, config) && !headers['Idempotency-Key']) {
-    headers['Idempotency-Key'] = generateUUID()
+    const fingerprint = idempotencyFingerprint(method, config.url, config.data)
+    if (fingerprint) {
+      headers['Idempotency-Key'] = stableIdempotencyKey(fingerprint)
+      config.idempotencyFingerprint = fingerprint
+    } else {
+      headers['Idempotency-Key'] = generateUUID()
+    }
   }
 
   config.headers = headers
@@ -79,6 +117,10 @@ httpClient.interceptors.request.use((config) => {
 
 httpClient.interceptors.response.use(
   (response) => {
+    // Done: the next identical request is new work and gets a new key.
+    if (response.config?.idempotencyFingerprint) {
+      pendingIdempotencyKeys.delete(response.config.idempotencyFingerprint)
+    }
     const upperMethod = String(response.config?.method || 'get').toUpperCase()
     const fullUrl = `${response.config?.baseURL || ''}${response.config?.url || ''}`
     if (import.meta.env.DEV)
@@ -119,6 +161,7 @@ httpClient.interceptors.response.use(
           ? `${window.location.pathname}${window.location.search}${window.location.hash}`
           : ROUTES.ROOT
       const returnPath = currentPath && !currentPath.startsWith(ROUTES.LOGIN) ? currentPath : null
+      // Clearing the session also clears the query cache and per-user stores (see lib/sessionReset).
       useSessionStore.getState().clearSession(returnPath)
 
       if (typeof window !== 'undefined') {

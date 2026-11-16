@@ -5,7 +5,7 @@ export const useSessionStore = create((set) => ({
   user: null,
   role: null,
   // Backend role as sent (SUPER_ADMIN | ADMIN | MEMBER | VIEWER). `role` is the normalized UI role,
-  // which maps both MEMBER and VIEWER to DOCTOR; scope differs (VIEWER = granted patients only).
+  // which maps MEMBER to RECORDS_STAFF and VIEWER to DOCTOR (VIEWER = granted patients only).
   backendRole: null,
   permissions: [],
   hospital: null,

@@ -1,23 +1,39 @@
 import { useRef } from 'react'
 import { useMutation } from '@tanstack/react-query'
+import { generateUUID } from '@/services/api/httpClient'
 import { intakeApi } from '../api/intakeApi'
 
 /**
  * Executes Claim Intake (GAP-04) with an Idempotency-Key.
- * Reuses the same key on error retry; generates a new key on new inputs.
+ * The key is reused only when the exact same payload is retried after an error; a changed
+ * payload (the user fixed a field) or a successful run gets a new key.
  */
 export function useRunIntake() {
-  const idempotencyKeyRef = useRef(crypto.randomUUID())
+  const idempotencyRef = useRef(null) // { key, body }
 
   const startNewRun = () => {
-    idempotencyKeyRef.current = crypto.randomUUID()
+    idempotencyRef.current = null
+  }
+
+  const keyFor = (payload) => {
+    let body
+    try {
+      body = JSON.stringify(payload ?? null)
+    } catch {
+      body = null
+    }
+    const current = idempotencyRef.current
+    if (current && body !== null && current.body === body) return current.key
+    const key = generateUUID()
+    idempotencyRef.current = { key, body }
+    return key
   }
 
   const mutation = useMutation({
-    mutationFn: (payload) => intakeApi.createIntake(payload, idempotencyKeyRef.current),
+    mutationFn: (payload) => intakeApi.createIntake(payload, keyFor(payload)),
     onSuccess: () => {
-      // Rotate key after a successful execution
-      idempotencyKeyRef.current = crypto.randomUUID()
+      // The next run is new work
+      idempotencyRef.current = null
     },
   })
 
@@ -28,4 +44,3 @@ export function useRunIntake() {
     startNewRun,
   }
 }
-

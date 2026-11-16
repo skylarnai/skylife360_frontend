@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { EmptyStep } from '@/components/common/EmptyStep'
-import { Button, ErrorBox, Note, Pill } from '@/components/ui'
+import { ErrorBox, Note, Pill } from '@/components/ui'
 import { intakeQueryKey, useIntake } from '@/features/gaps/hooks/useIntake'
 import { useBatch } from '@/features/ingestion/hooks/useBatch'
 import { useIntegrityRun } from '@/features/integrity/hooks/useIntegrityRun'
@@ -52,7 +52,8 @@ export function ApproveSubmitStep() {
   const intakeQuery = useIntake(intakeId)
   const batchQuery = useBatch(batchId)
 
-  const integrityRunId = intakeQuery.data?.integrity_run_id || desk.integrityRunId
+  const integrityRunId =
+    intakeQuery.data?.integrity_run_id || desk.integrityRunId || latest?.integrity_run_id || null
   // This browser's run first; otherwise the claim's latest packet (e.g. a second reviewer's window).
   const packetId = intakeQuery.data?.packet_id || desk.packetId || latestPacketId
   // Integrity runs need integrity:view; without it the task alone drives this step.
@@ -106,11 +107,27 @@ export function ApproveSubmitStep() {
     requeueError,
   } = useSubmission(submissionId)
 
+  // Guard: the integrity check must have run. A packet alone is not enough (Check gaps builds one).
+  // Without integrity:view the run's status can't be read, so an existing run counts; the task's
+  // stage and blockers then decide what can happen.
+  const hasIntegrityCompleted =
+    desk.integrityRun ||
+    integrityStatus === 'COMPLETED' ||
+    (!canViewIntegrity && Boolean(integrityRunId)) ||
+    Boolean(reviewTaskId)
+  const canOpenReview = hasIntegrityCompleted || Boolean(intakeId)
+
   // No review task yet: POST /reviews { packet_id } returns the existing one (200) or opens it (201).
   const openAttempted = useRef(false)
   useEffect(() => {
     // With an intake, wait for it (its pipeline view may already name the task); without one, open by packet.
-    if (!packetId || reviewTaskId || (intakeId && !intakeQuery.isSuccess) || openAttempted.current)
+    if (
+      !canOpenReview ||
+      !packetId ||
+      reviewTaskId ||
+      (intakeId && !intakeQuery.isSuccess) ||
+      openAttempted.current
+    )
       return
     openAttempted.current = true
     openTaskAsync(packetId)
@@ -123,7 +140,15 @@ export function ApproveSubmitStep() {
       .catch(() => {
         // Shown via openTaskError
       })
-  }, [packetId, reviewTaskId, intakeId, intakeQuery.isSuccess, openTaskAsync, updateDesk])
+  }, [
+    canOpenReview,
+    packetId,
+    reviewTaskId,
+    intakeId,
+    intakeQuery.isSuccess,
+    openTaskAsync,
+    updateDesk,
+  ])
 
   // A finished integrity run changes the task (version, blockers, stage): reload it.
   useEffect(() => {
@@ -149,7 +174,9 @@ export function ApproveSubmitStep() {
   const decisionEntry = [...(task?.audit_trail || [])]
     .reverse()
     .find((e) => ['APPROVED', 'REJECTED', 'FALSE_POSITIVE'].includes(e.decision))
-  const reviewerName = decisionEntry?.reviewer_name || user?.name || 'the reviewer'
+  // The viewer's own name only for a decision they just made here (desk state is per user and claim).
+  const reviewerName =
+    decisionEntry?.reviewer_name || (desk.decision ? user?.name : null) || 'the reviewer'
   const payerName =
     claim?.payer_name || submission?.payer_code || handoff?.payer_code || 'the payer'
 
@@ -226,10 +253,6 @@ export function ApproveSubmitStep() {
     }
   }
 
-  // Guard: Must complete prior steps
-  const hasIntegrityCompleted =
-    desk.integrityRun || integrityRunQuery.data?.status === 'COMPLETED' || Boolean(packetId)
-
   const header = (
     <div className="between">
       <h2 style={{ fontSize: '18px' }}>Approve and submit</h2>
@@ -239,7 +262,7 @@ export function ApproveSubmitStep() {
     </div>
   )
 
-  if (!hasIntegrityCompleted && !intakeId) {
+  if (!canOpenReview) {
     return (
       <>
         {header}
@@ -428,17 +451,9 @@ export function ApproveSubmitStep() {
             />
           )}
 
-          {currentDecision === 'REJECTED' && (
-            <div className="row">
-              <Button
-                onClick={() => {
-                  updateDesk({ decision: null, note: '' })
-                }}
-              >
-                ↺ Reopen review
-              </Button>
-            </div>
-          )}
+          {/* No "Reopen review": the backend has no way to take a second decision on a task, so
+              clearing the decision here only hid it until the task reloaded (see S03.6 spec:
+              hide the button unless the backend allows it). */}
         </div>
       )}
     </>

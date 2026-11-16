@@ -2,7 +2,13 @@ import { useMutation } from '@tanstack/react-query'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { MESSAGES } from '@/constants/messages'
 import { ApiError } from '@/services/api/apiError'
-import { isAdminRole } from '@/constants/permissions'
+import {
+  canUseClaimDesk,
+  hasAnyPermission,
+  isAdminRole,
+  PERMISSIONS,
+  ROLES,
+} from '@/constants/permissions'
 import { getLandingRoute, ROUTES } from '@/constants/routes'
 import { authApi } from '@/services/auth/authApi'
 import { useSessionStore } from '@/store/sessionStore'
@@ -42,8 +48,16 @@ function roleMismatch(email, actual) {
   })
 }
 
-// Admin-only screens a Doctor / Staff user must never be sent to after sign-in
-const ADMIN_ONLY_PREFIXES = ['/claims', '/users']
+// After sign-in, only send someone back to a screen the router will let them open
+// (same rules as RequirePermission in app/router): permissions decide, not the role.
+function canOpenAfterLogin(destination, role, permissions) {
+  if (destination.startsWith('/claims')) return canUseClaimDesk(role, permissions)
+  if (destination.startsWith('/insurance')) return role === ROLES.ADMIN
+  if (destination.startsWith('/users')) {
+    return hasAnyPermission(permissions, [PERMISSIONS.USERS_MANAGE])
+  }
+  return true
+}
 
 export function useLogin() {
   const navigate = useNavigate()
@@ -97,10 +111,8 @@ export function useLogin() {
 
       const landing = getLandingRoute(sessionData.role)
       let destination = location.state?.from || returnToPath || landing
-      if (
-        !isAdminRole(sessionData.role) &&
-        ADMIN_ONLY_PREFIXES.some((prefix) => destination.startsWith(prefix))
-      ) {
+      const { role, permissions } = useSessionStore.getState()
+      if (!canOpenAfterLogin(destination, role, permissions)) {
         destination = landing
       }
       setReturnToPath(null)

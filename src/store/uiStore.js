@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { env } from '@/config/env'
 import { formatTimeNow } from '@/utils/formatters'
+import { onUserChange } from '@/lib/sessionReset'
 import { useSessionStore } from './sessionStore'
 
 // Hidden by default (demo). Developers turn it on with Ctrl+Shift+A; the choice is remembered.
@@ -72,3 +73,6 @@ export const useUiStore = create((set) => ({
     set({ theme })
   },
 }))
+
+// The activity log names patients' files and claims: it belongs to the user who did the work.
+onUserChange(() => useUiStore.getState().clearActivities())

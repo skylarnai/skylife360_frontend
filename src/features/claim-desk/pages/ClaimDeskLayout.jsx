@@ -144,7 +144,8 @@ export function ClaimDeskLayout() {
 
       <div className="cols">
         <section className="card main pad stack" aria-live="polite">
-          <StepComponent />
+          {/* Keyed by claim: local step state (opened task, attempts) never carries over to another claim. */}
+          <StepComponent key={claimId} />
         </section>
         <aside className="rail">
           <ApiRail

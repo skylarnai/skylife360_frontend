@@ -86,9 +86,11 @@ export function canUseClaimDesk(role, permissions = []) {
 export function normalizeRole(role) {
   const upper = String(role || '').toUpperCase()
   if (upper === 'ADMIN' || upper === 'SUPER_ADMIN') return ROLES.ADMIN
-  if (upper === 'RECORDS_STAFF' || upper === 'STAFF') return ROLES.RECORDS_STAFF
+  // Backend MEMBER is hospital staff (uploads, re-scans, to-dos); VIEWER is a doctor.
+  if (upper === 'RECORDS_STAFF' || upper === 'STAFF' || upper === 'MEMBER')
+    return ROLES.RECORDS_STAFF
   if (upper === 'COMPLIANCE') return ROLES.COMPLIANCE
-  if (upper === 'MEMBER' || upper === 'DOCTOR') return ROLES.DOCTOR
+  if (upper === 'DOCTOR') return ROLES.DOCTOR
   if (upper === 'VIEWER') return ROLES.DOCTOR
   return ROLES.DOCTOR
 }
