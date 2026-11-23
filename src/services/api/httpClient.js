@@ -19,9 +19,18 @@ function requiresIdempotencyKey(method, url = '', config = {}) {
   return IDEMPOTENT_PATHS.some((segment) => url.includes(segment))
 }
 
+// crypto.randomUUID exists only in secure contexts (https, localhost); opened as http://<LAN IP>:5173 it is
+// undefined. crypto.getRandomValues works in every context, so it is the fallback.
 export function generateUUID() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID()
+  }
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    const b = crypto.getRandomValues(new Uint8Array(16))
+    b[6] = (b[6] & 0x0f) | 0x40 // version 4
+    b[8] = (b[8] & 0x3f) | 0x80 // RFC 4122 variant
+    const h = Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('')
+    return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`
   }
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0
