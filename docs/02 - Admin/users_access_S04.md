@@ -7,8 +7,10 @@
 | Route | `/users` |
 | Prototype reference | `viewUsers()` |
 | Depends on | S00, S01 |
-| Status | Planned |
-| API readiness | **NEEDED** (all `/users` endpoints) |
+| Status | **Wired** to `/api/v1/users` (backend `73c22bb`): list (paged), create, role, enable/disable, patient grants, custom permissions. No mock. |
+| API readiness | READY |
+
+> **Note:** Sections below were written before the backend shipped; the mock and prototype users are gone. Current behaviour: [end_to_end_claim_flow.md](../end_to_end_claim_flow.md) §2–3, §6.
 
 ## 1. Purpose
 

@@ -3,10 +3,10 @@
 | Field | Value |
 |---|---|
 | Base | `/api/v1` on the FastAPI backend (`D:\projects\sky_life_360_dev`) |
-| Checked against | backend `dev` branch, routers under `app/features/*` (2 Nov 2026) |
+| Checked against | backend `dev` branch, routers under `app/features/*` (2 Nov 2026; auth, users, claims and files rows re-checked 5 Nov 2026 @ `edd5e9f`) |
 | Tags | **READY** = exists today · **NEEDED** = must be added before the screen can be wired |
 
-> **Auth today vs. planned.** Today every backend route requires an `X-API-Key` header; there is no staff login. The browser must never hold that key: in dev the Vite proxy adds it on the server side (see S00 §6). The planned auth module replaces it for people with an `HttpOnly` session cookie + `X-CSRF-Token`; API keys stay for machines.
+> **Auth.** People sign in with the backend auth module: an `HttpOnly` session cookie, plus `X-CSRF-Token` on writes. API keys (`X-API-Key`) are only for machines and must never reach the browser.
 
 ## READY — exists in the backend
 
@@ -45,37 +45,39 @@
 | GET | `/claims/gap-reports/{gap_report_id}` | S03.6, S08 | report sent to the hospital |
 | POST | `/claims/gap-reports/{gap_report_id}/links` | S08 | short-lived link |
 | GET | `/statuses` | S00 | status code → label maps |
+| POST | `/auth/login` · `/auth/mfa/verify` · `/auth/logout` | S01, S00 | session cookie; MFA only for `ADMIN` / `SUPER_ADMIN` |
+| GET | `/auth/me` | S00, S01 | `user`, `role`, `permissions[]`, `csrf_token` |
+| POST | `/auth/password/forgot` · `/auth/password/reset` | S01 | |
+| GET · POST | `/users` | S04 | `users:manage` to create |
+| PATCH | `/users/{user_id}` | S04 | role, active |
+| GET · POST · DELETE | `/users/{user_id}/user-access[/{assigned_user_id}]` | S04 | doctor patient scope (`VIEWER`); `{ user_ids: [] }` |
+| GET · POST | `/claims` | S02 | worklist (`stage, payer, q`) / create |
+| GET | `/claims/{claim_id}` · `/claims/{claim_id}/documents` | S03 | header / every linked file |
+| DELETE | `/claims/{claim_id}/documents/{file_id}` | S03.1 | `files:upload` |
+| GET | `/files/{file_id}/text?page=` | S05 | one page of text per call (alias under `/ingestion/files/`) |
+| GET | `/files/{file_id}/download` | S03.2, S05 | pre-signed URL, 5 min |
 
 Not used by any screen yet (admin tools for later): `/rules/*`, `/charges/*`, `/claims/registry/ingest` and datasets, `/outcomes/*`, `/models/*`, `/evaluations/ragas`.
 
 ## NEEDED — must be added to the backend
 
-| Method | Path | Screens | Backend module |
-|---|---|---|---|
-| POST | `/auth/login` | S01 | auth (new) |
-| POST | `/auth/mfa/verify` | S01 | auth |
-| GET | `/auth/me` | S00, S01 | auth |
-| POST | `/auth/logout` | S00 | auth |
-| POST | `/auth/password/forgot` | S01 | auth |
-| POST | `/auth/password/reset` | S01 | auth |
-| GET · POST | `/users` | S04 | auth |
-| PATCH | `/users/{id}` | S04 | auth |
-| GET · POST · DELETE | `/users/{id}/patients` | S04 | auth (`staff_patient_access`) |
-| GET · POST | `/claims` | S02 | claims record (new) |
-| GET | `/claims/{claim_id}` | S03 | claims record |
-| POST | `/claims/{claim_id}/documents` | S03.1 | claims record (link batches) |
-| GET | `/files?patient=&type=&status=` | S05, S07 | ingestion (list) |
-| GET | `/files/{file_id}/text` | S05 | ingestion / extraction (page text) |
-| GET | `/patients` | S06 | patients (new) |
-| GET | `/patients/{user_id}` | S07 | patients |
-| GET | `/patients/{user_id}/timeline` | S07 | patients (from extracted facts) |
-| GET | `/tasks?assignee=me` | S08 | tasks (new) |
-| POST | `/tasks` | S05, S08 | tasks |
-| POST | `/tasks/{task_id}/resolve` | S08 | tasks |
+All remaining gaps are in the Doctor / Staff flow. Full contracts, scoping and build order are in [03 - Doctor and Staff/doctor_flow_apis.md](03%20-%20Doctor%20and%20Staff/doctor_flow_apis.md).
+
+| Id | Method | Path | Screens | Backend module |
+|---|---|---|---|---|
+| N1 | GET | `/files?patient=&type=&status=` | S05, S07 | ingestion (`files_router`) |
+| N2 | GET | `/patients?mine=true` | S05, S06, S07 | patients (new) |
+| N3 | GET | `/patients/{user_id}` | S07 | patients |
+| N4 | GET | `/patients/{user_id}/timeline` | S07 | patients (from extracted facts) |
+| N5 | GET | `/tasks?assignee=me` | S08 | tasks (new) |
+| N6 | POST | `/tasks/{task_id}/resolve` | S08 | tasks |
+| N7 | POST | `/tasks` | S05, S08, gap engine | tasks |
+
+Done since the first version of this catalog: the auth module, `/users`, `/claims` and `/files/{id}/text`. Linking uploads to a claim is done with `claim_id` on `/ingestion/upload`, not a separate `POST /claims/{id}/documents`.
 
 ## Cross-cutting backend work the UI relies on
 
-- Role checks on the routes (`require_permission`), doctor care-team scope on files, search and ask.
+- Role checks on the routes (`require_permission`). Doctor care-team scope (`VIEWER` + `assigned_user_ids`) already covers search, ask, evaluation and upload; the new N1–N7 routes must use it too.
 - CORS for the frontend origin with credentials.
 - `actor_id` (the signed-in person) in review and submission audit logs.
 - Optional: server-sent events for upload, extraction, integrity and submission status, to replace polling.
